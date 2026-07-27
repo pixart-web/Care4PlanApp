@@ -1,0 +1,16 @@
+﻿/vendor
+/node_modules
+/public/build
+/.env
+/.env.backup
+/storage/*.key
+/database/*.sqlite
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+/upload-ready/data/*.sqlite
+/Care4All-upload-ready.zip
+/tools/
+/php-server.*.log
+/upload-ready/config-local.php

@@ -1,0 +1,3 @@
+<?php
+
+define('INITIAL_ADMIN_PASSWORD', 'CHANGE_ME_ON_SERVER');
