@@ -30,34 +30,168 @@ function setupColorButton() {
 }
 
 function setupModals() {
+  let active = null;
+  let opener = null;
+  let lastTrigger = null;
+  let previousOverflow = '';
+  const inertElements = new Map();
+  const focusable = (modal) => [...modal.querySelectorAll('a[href], button, input, select, textarea, [tabindex]')]
+    .filter((element) => !element.disabled && element.tabIndex >= 0 && !element.closest('[hidden], [inert]') && element.getClientRects().length);
+  const resolve = (modal) => typeof modal === 'string' ? document.getElementById(modal) : modal;
+  const close = (target = active) => {
+    const modal = resolve(target);
+    if (!modal) return;
+    modal.hidden = true;
+    if (active !== modal) return;
+    active = null;
+    inertElements.forEach((wasInert, element) => { element.inert = wasInert; });
+    inertElements.clear();
+    document.body.style.overflow = previousOverflow;
+    const restore = opener;
+    opener = null;
+    if (restore?.isConnected && !restore.closest('[hidden], [inert]') && restore.getClientRects().length) restore.focus();
+    else document.getElementById('main-content')?.focus();
+  };
+  const open = (target, trigger) => {
+    const modal = resolve(target);
+    if (!modal || active === modal) return;
+    const restore = trigger || lastTrigger || document.activeElement;
+    if (active) close(active);
+    active = modal;
+    opener = restore;
+    modal.hidden = false;
+    previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    // Dialogs live inside main; inert siblings along the ancestor path, never main itself.
+    for (let branch = modal; branch.parentElement && branch !== document.body; branch = branch.parentElement) {
+      [...branch.parentElement.children].forEach((sibling) => {
+        if (sibling !== branch && sibling instanceof HTMLElement && !['SCRIPT', 'STYLE', 'LINK'].includes(sibling.tagName)) {
+          inertElements.set(sibling, sibling.inert);
+          sibling.inert = true;
+        }
+      });
+    }
+    const dialog = modal.querySelector('[role="dialog"]') || modal;
+    dialog.tabIndex = -1;
+    const initial = focusable(modal).find((element) => element.matches('[autofocus], input:not([type="hidden"]), select, textarea'));
+    (initial || focusable(modal)[0] || dialog).focus();
+  };
+  window.openCareModal = open;
+  window.closeCareModal = close;
+  document.addEventListener('click', (event) => {
+    if (!active) lastTrigger = event.target.closest('button, a, [tabindex]') || document.activeElement;
+  }, true);
   document.querySelectorAll('[data-open-modal]').forEach((button) => {
     button.addEventListener('click', () => {
-      const modal = document.getElementById(button.dataset.openModal);
-      if (!modal) return;
-      modal.hidden = false;
-      modal.querySelector('input, select, button')?.focus();
+      open(button.dataset.openModal, button);
     });
   });
 
   document.querySelectorAll('[data-close-modal]').forEach((button) => {
     button.addEventListener('click', () => {
       const modal = button.closest('.modal-backdrop');
-      if (modal) modal.hidden = true;
+      close(modal);
     });
   });
 
   document.querySelectorAll('.modal-backdrop').forEach((modal) => {
     modal.addEventListener('click', (event) => {
-      if (event.target === modal) modal.hidden = true;
+      if (event.target === modal) close(modal);
     });
+    new MutationObserver(() => {
+      if (!modal.hidden && active !== modal) open(modal);
+      else if (modal.hidden && active === modal) close(modal);
+    }).observe(modal, { attributes: true, attributeFilter: ['hidden'] });
+    if (!modal.hidden) open(modal);
   });
 
   document.addEventListener('keydown', (event) => {
+    if (!active) return;
     if (event.key === 'Escape') {
-      document.querySelectorAll('.modal-backdrop:not([hidden])').forEach((modal) => {
-        modal.hidden = true;
-      });
+      event.preventDefault();
+      close();
+    } else if (event.key === 'Tab') {
+      const elements = focusable(active);
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      if (!first) {
+        event.preventDefault();
+        (active.querySelector('[role="dialog"]') || active).focus();
+      } else if (event.shiftKey && (document.activeElement === first || !elements.includes(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !elements.includes(document.activeElement))) {
+        event.preventDefault();
+        first.focus();
+      }
     }
+  });
+  document.addEventListener('focusin', (event) => {
+    if (active && !active.contains(event.target)) (focusable(active)[0] || active.querySelector('[role="dialog"]') || active).focus();
+  });
+}
+
+function setupMobileNavigation() {
+  const toggle = qs('[data-navigation-toggle]');
+  const navigation = qs('#mobile-navigation');
+  if (!toggle || !navigation) return;
+  const setOpen = (open) => {
+    toggle.setAttribute('aria-expanded', String(open));
+    navigation.hidden = !open;
+  };
+  toggle.addEventListener('click', () => setOpen(navigation.hidden));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !navigation.hidden) {
+      setOpen(false);
+      toggle.focus();
+    }
+  });
+  document.addEventListener('click', (event) => {
+    if (!navigation.hidden && !navigation.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
+  });
+  document.addEventListener('focusin', (event) => {
+    if (!navigation.hidden && !navigation.contains(event.target) && !toggle.contains(event.target)) setOpen(false);
+  });
+  window.matchMedia('(min-width: 981px)').addEventListener('change', (event) => { if (event.matches) setOpen(false); });
+}
+
+function setupReportReadTracking() {
+  document.querySelectorAll('details[data-report-read]').forEach((details) => {
+    let pending = false;
+    let read = false;
+    details.addEventListener('toggle', async () => {
+      if (!details.open || pending || read) return;
+      const id = details.dataset.reportRead;
+      const csrf = details.dataset.csrf;
+      if (!id || !csrf) return;
+      pending = true;
+      const data = new FormData();
+      data.set('_csrf', csrf);
+      data.set('action', 'mark_report_read');
+      data.set('id', id);
+      try {
+        const response = await fetch(window.location.href, { method: 'POST', body: data, credentials: 'same-origin', headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        if (!response.ok || new URL(response.url || window.location.href).searchParams.get('page') === 'login') throw new Error('Report read request failed');
+        read = true;
+        const item = details.closest('.report-item');
+        item?.classList.remove('unread');
+        item?.querySelector('.report-head .badge-alert')?.remove();
+        item?.querySelector('input[name="action"][value="mark_report_read"]')?.closest('form')?.remove();
+      } catch {
+        let message = details.querySelector('[data-read-error]');
+        if (!message) {
+          message = document.createElement('p');
+          message.dataset.readError = '';
+          message.className = 'alert alert-error';
+          message.setAttribute('role', 'status');
+          details.appendChild(message);
+        }
+        message.textContent = 'Não foi possível marcar como lido. Volte a abrir o relatório para tentar novamente.';
+      } finally {
+        pending = false;
+        if (read) details.querySelector('[data-read-error]')?.remove();
+      }
+    });
   });
 }
 
@@ -162,4 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupPatientSelectors();
   setupUserSelectors();
   setupReportReplies();
+  setupMobileNavigation();
+  setupReportReadTracking();
 });

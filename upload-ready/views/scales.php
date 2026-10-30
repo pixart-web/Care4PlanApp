@@ -1,15 +1,25 @@
 <?php
+require_once __DIR__ . '/../lib/scheduling.php';
 $user = require_auth();
 $isCarer = $user['role'] === 'CARER';
 $pdo = db();
 $carers = $pdo->query('SELECT * FROM carers ORDER BY name')->fetchAll();
 $patients = $pdo->query('SELECT * FROM patients ORDER BY name')->fetchAll();
-$municipalities = ['Portimão', 'Lagos', 'Lagoa', 'Albufeira', 'Silves'];
-$selectedMunicipality = $_GET['municipality'] ?? $municipalities[0];
-if (! in_array($selectedMunicipality, $municipalities, true)) {
-    $selectedMunicipality = $municipalities[0];
+$municipalities = scheduling_municipalities();
+$selectedMunicipality = $_GET['municipality'] ?? ($_SESSION['scales_municipality'] ?? 'all');
+if ($selectedMunicipality === '') {
+    $selectedMunicipality = 'all';
 }
-$periodOptions = ['day' => 'Dia', 'week' => 'Semana', 'month' => 'Mês'];
+if (! in_array($selectedMunicipality, [...$municipalities, 'all', '__unassigned'], true)) {
+    $selectedMunicipality = 'all';
+}
+$_SESSION['scales_municipality'] = $selectedMunicipality;
+$selectedStatus = (string) ($_GET['status'] ?? '');
+if (! in_array($selectedStatus, ['', 'SCHEDULED', 'DONE', 'CANCELLED'], true)) {
+    $selectedStatus = '';
+}
+$search = substr(trim((string) ($_GET['search'] ?? '')), 0, 200);
+$periodOptions = ['day' => 'Dia', 'week' => 'Semana', 'month' => 'Mês', 'list' => 'Lista'];
 $selectedPeriod = $_GET['period'] ?? 'day';
 if (! isset($periodOptions[$selectedPeriod])) {
     $selectedPeriod = 'day';
@@ -24,13 +34,21 @@ if ($selectedPeriod === 'week') {
         $selectedWeek = date('o-\WW');
         preg_match('/^(\d{4})-W(\d{2})$/', $selectedWeek, $weekParts);
     }
+    if ((int) $weekParts[2] < 1 || (int) $weekParts[2] > 53) {
+        $selectedWeek = date('o-\WW');
+        preg_match('/^(\d{4})-W(\d{2})$/', $selectedWeek, $weekParts);
+    }
     $periodStartDate = new DateTime();
     $periodStartDate->setISODate((int) $weekParts[1], (int) $weekParts[2], 1);
+    if ($periodStartDate->format('o-\WW') !== $selectedWeek) {
+        $periodStartDate = new DateTime('monday this week');
+        $selectedWeek = $periodStartDate->format('o-\WW');
+    }
     $periodEndDate = (clone $periodStartDate)->modify('+6 days');
     $periodLabel = $periodStartDate->format('d/m/Y') . ' a ' . $periodEndDate->format('d/m/Y');
     $selectedDate = $periodStartDate->format('Y-m-d');
 } elseif ($selectedPeriod === 'month') {
-    if (! preg_match('/^\d{4}-\d{2}$/', $selectedMonth)) {
+    if (! preg_match('/^\d{4}-\d{2}$/', $selectedMonth) || (int) substr($selectedMonth, 5) < 1 || (int) substr($selectedMonth, 5) > 12) {
         $selectedMonth = date('Y-m');
     }
     $periodStartDate = new DateTime($selectedMonth . '-01');
@@ -38,7 +56,7 @@ if ($selectedPeriod === 'week') {
     $periodLabel = $monthNames[(int) $periodStartDate->format('n')] . ' de ' . $periodStartDate->format('Y');
     $selectedDate = $periodStartDate->format('Y-m-d');
 } else {
-    if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $selectedDate)) {
+    if (! preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $selectedDate, $dateParts) || ! checkdate((int) $dateParts[2], (int) $dateParts[3], (int) $dateParts[1])) {
         $selectedDate = date('Y-m-d');
     }
     $periodStartDate = new DateTime($selectedDate);
@@ -58,14 +76,28 @@ $calendarHours = range(0, 23);
 if (! $isCarer) {
     require_role(['ADMIN', 'EDITOR']);
     $periodStart = $periodStartDate->format('Y-m-d') . ' 00:00:00';
-    $periodEnd = $periodEndDate->format('Y-m-d') . ' 23:59:59';
+    $periodEnd = (clone $periodEndDate)->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
     $sql = "SELECT services.*, patients.name AS patient_name, patients.address, carers.name AS carer_name, carers.color_hex
         FROM services
         JOIN patients ON patients.id = services.patient_id
         JOIN carers ON carers.id = services.carer_id
-        WHERE services.starts_at < ? AND services.ends_at > ?
-            AND COALESCE(services.municipality, '') = ?";
-    $params = [$periodEnd, $periodStart, $selectedMunicipality];
+        WHERE services.starts_at < ? AND services.ends_at > ?";
+    $params = [$periodEnd, $periodStart];
+    if ($selectedMunicipality === '__unassigned') {
+        $sql .= " AND TRIM(COALESCE(services.municipality, '')) = ''";
+    } elseif ($selectedMunicipality !== 'all') {
+        $sql .= ' AND services.municipality = ?';
+        $params[] = $selectedMunicipality;
+    }
+    if ($selectedStatus !== '') {
+        $sql .= ' AND services.status = ?';
+        $params[] = $selectedStatus;
+    }
+    if ($search !== '') {
+        $sql .= " AND (patients.name LIKE ? ESCAPE '\\' OR carers.name LIKE ? ESCAPE '\\' OR COALESCE(services.observations, '') LIKE ? ESCAPE '\\')";
+        $term = '%' . strtr($search, ['\\' => '\\\\', '%' => '\\%', '_' => '\\_']) . '%';
+        array_push($params, $term, $term, $term);
+    }
     if ($selectedCarer > 0) {
         $sql .= ' AND services.carer_id = ?';
         $params[] = $selectedCarer;
@@ -84,7 +116,13 @@ if (! $isCarer) {
         $serviceDate = substr((string) $service['starts_at'], 0, 10);
         $serviceHour = (int) date('G', strtotime($service['starts_at']));
         $servicesByHour[$serviceHour][] = $service;
-        $servicesByDate[$serviceDate][] = $service;
+        for ($day = clone $periodStartDate; $day <= $periodEndDate; $day->modify('+1 day')) {
+            $dayStart = $day->format('Y-m-d') . ' 00:00:00';
+            $dayEnd = (clone $day)->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
+            if ($service['starts_at'] < $dayEnd && $service['ends_at'] > $dayStart) {
+                $servicesByDate[$day->format('Y-m-d')][] = $service;
+            }
+        }
         if (! isset($mapCarers[$carerId])) {
             $mapCarers[$carerId] = ['id' => $carerId, 'name' => $service['carer_name'], 'color_hex' => $service['color_hex']];
         }
@@ -94,12 +132,19 @@ if (! $isCarer) {
         $calendarDays[] = $day->format('Y-m-d');
     }
 }
+$columnCarers = $selectedCarer ? array_values(array_filter($carers, fn ($carer) => (int) $carer['id'] === $selectedCarer)) : $carers;
+usort($columnCarers, fn ($a, $b) => [isset($mapCarers[(int) $a['id']]) ? 0 : 1, $a['name'], $a['id']] <=> [isset($mapCarers[(int) $b['id']]) ? 0 : 1, $b['name'], $b['id']]);
+$carerPages = max(1, (int) ceil(count($columnCarers) / 8));
+$carerPage = max(1, min($carerPages, (int) ($_GET['carer_page'] ?? 1)));
+$visibleCarers = array_slice($columnCarers, ($carerPage - 1) * 8, 8);
+$pageUrl = function (int $number): string {
+    return 'index.php?' . http_build_query(array_merge($_GET, ['page' => 'scales', 'carer_page' => $number]));
+};
 
-layout('Escalas - Care4All', function () use ($isCarer, $carers, $patients, $municipalities, $periodOptions, $selectedMunicipality, $selectedPeriod, $selectedDate, $selectedWeek, $selectedMonth, $periodLabel, $mapServices, $mapCarers, $servicesByHour, $servicesByDate, $calendarDays, $calendarHours, $selectedCarer, $selectedPatient) { ?>
+layout('Escalas - Care4All', function () use ($isCarer, $carers, $patients, $municipalities, $periodOptions, $selectedMunicipality, $selectedPeriod, $selectedDate, $selectedWeek, $selectedMonth, $periodLabel, $mapServices, $mapCarers, $servicesByHour, $servicesByDate, $calendarDays, $calendarHours, $selectedCarer, $selectedPatient, $selectedStatus, $search, $visibleCarers, $carerPage, $carerPages, $pageUrl) { ?>
     <?php if ($isCarer): ?>
-        <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
-        <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales/pt.global.min.js"></script>
+        <script src="assets/vendor/fullcalendar-6.1.11.global.min.js"></script>
+        <script src="assets/vendor/fullcalendar-pt-6.1.11.global.min.js"></script>
     <?php endif; ?>
 
     <div class="page-head">
@@ -123,7 +168,7 @@ layout('Escalas - Care4All', function () use ($isCarer, $carers, $patients, $mun
         <section class="card scale-map-shell">
             <form class="scale-map-filters" method="get">
                 <input type="hidden" name="page" value="scales">
-                <label class="field"><span class="label">Concelho</span><select class="input" name="municipality" id="map_municipality" required><?php foreach ($municipalities as $municipality): ?><option value="<?= e($municipality) ?>" <?= $selectedMunicipality === $municipality ? 'selected' : '' ?>><?= e($municipality) ?></option><?php endforeach; ?></select></label>
+                <label class="field"><span class="label">Concelho</span><select class="input" name="municipality" id="map_municipality"><option value="all" <?= $selectedMunicipality === 'all' ? 'selected' : '' ?>>Todos os concelhos</option><option value="__unassigned" <?= $selectedMunicipality === '__unassigned' ? 'selected' : '' ?>>Sem concelho</option><?php foreach ($municipalities as $municipality): ?><option value="<?= e($municipality) ?>" <?= $selectedMunicipality === $municipality ? 'selected' : '' ?>><?= e($municipality) ?></option><?php endforeach; ?></select></label>
                 <label class="field"><span class="label">Vista</span><select class="input" name="period" id="map_period"><?php foreach ($periodOptions as $periodKey => $periodLabelOption): ?><option value="<?= e($periodKey) ?>" <?= $selectedPeriod === $periodKey ? 'selected' : '' ?>><?= e($periodLabelOption) ?></option><?php endforeach; ?></select></label>
                 <?php if ($selectedPeriod === 'week'): ?>
                     <label class="field"><span class="label">Semana</span><input class="input" type="week" name="scale_week" value="<?= e($selectedWeek) ?>"></label>
@@ -134,10 +179,12 @@ layout('Escalas - Care4All', function () use ($isCarer, $carers, $patients, $mun
                 <?php endif; ?>
                 <label class="field"><span class="label">Cuidadora</span><select class="input" name="carer_id"><option value="0">Todas as cuidadoras</option><?php foreach ($carers as $carer): ?><option value="<?= $carer['id'] ?>" <?= $selectedCarer === (int) $carer['id'] ? 'selected' : '' ?>><?= e($carer['name']) ?></option><?php endforeach; ?></select></label>
                 <label class="field"><span class="label">Utente</span><select class="input" name="patient_id"><option value="0">Todos os utentes</option><?php foreach ($patients as $patient): ?><option value="<?= $patient['id'] ?>" <?= $selectedPatient === (int) $patient['id'] ? 'selected' : '' ?>><?= e($patient['name']) ?></option><?php endforeach; ?></select></label>
+                <label class="field"><span class="label">Estado</span><select class="input" name="status"><?php foreach (['' => 'Todos', 'SCHEDULED' => 'Agendado', 'DONE' => 'Realizado', 'CANCELLED' => 'Cancelado'] as $key => $label): ?><option value="<?= e($key) ?>" <?= $key === $selectedStatus ? 'selected' : '' ?>><?= e($label) ?></option><?php endforeach; ?></select></label>
+                <label class="field"><span class="label">Pesquisar</span><input class="input" type="search" name="search" value="<?= e($search) ?>" maxlength="200"></label>
                 <div class="scale-map-filter-actions"><button class="btn btn-primary" type="submit">Ver mapa</button></div>
             </form>
             <div class="scale-map-summary">
-                <strong><?= e($selectedMunicipality) ?></strong>
+                <strong><?= e($selectedMunicipality === 'all' ? 'Todos os concelhos' : ($selectedMunicipality === '__unassigned' ? 'Sem concelho' : $selectedMunicipality)) ?></strong>
                 <span><?= e($periodOptions[$selectedPeriod]) ?>: <?= e($periodLabel) ?></span>
                 <span><?= count($mapServices) ?> servi&ccedil;o<?= count($mapServices) === 1 ? '' : 's' ?></span>
                 <span><?= count($mapCarers) ?> cuidadora<?= count($mapCarers) === 1 ? '' : 's' ?></span>
@@ -150,11 +197,44 @@ layout('Escalas - Care4All', function () use ($isCarer, $carers, $patients, $mun
                     <?php endforeach; ?>
                 </div>
             <?php endif; ?>
-            <?php if (empty($mapServices)): ?>
+            <div id="scales-mobile-list" <?= $selectedPeriod === 'list' ? '' : 'hidden' ?>>
+                <?php foreach ($mapServices as $service): ?>
+                    <div><strong><?= e(substr($service['starts_at'], 0, 10)) ?> / <?= e($service['municipality']) ?></strong><?php render_service_chip($service, $selectedMunicipality); ?></div>
+                <?php endforeach; ?>
+                <?php if (! $mapServices): ?><p>Sem escalas neste per&iacute;odo.</p><?php endif; ?>
+            </div>
+            <div id="scales-desktop-calendar" data-period="<?= e($selectedPeriod) ?>" <?= $selectedPeriod === 'list' ? 'hidden' : '' ?>>
+            <?php if ($selectedPeriod === 'day'): ?>
+                <nav class="btn-row scales-v2-pager" aria-label="P&aacute;ginas de cuidadoras">
+                    <?php if ($carerPage > 1): ?><a class="btn btn-secondary" href="<?= e($pageUrl($carerPage - 1)) ?>" aria-label="Cuidadoras anteriores">&larr;</a><?php endif; ?>
+                    <span><?= $carerPage ?> / <?= $carerPages ?></span>
+                    <?php if ($carerPage < $carerPages): ?><a class="btn btn-secondary" href="<?= e($pageUrl($carerPage + 1)) ?>" aria-label="Cuidadoras seguintes">&rarr;</a><?php endif; ?>
+                </nav>
+                <div class="scale-map-scroll scales-v2-day-scroll" style="max-height:75vh;overflow:auto">
+                    <div class="scales-v2-day-grid" style="display:grid;grid-template-columns:64px repeat(<?= max(1, count($visibleCarers)) ?>,minmax(140px,1fr));min-width:<?= 64 + max(1, count($visibleCarers)) * 140 ?>px">
+                        <div style="position:sticky;top:0;z-index:3;background:white">Hora</div>
+                        <?php foreach ($visibleCarers as $carer): ?><strong class="scales-v2-carer-heading" style="position:sticky;top:0;z-index:3;background:white;padding:8px;overflow-wrap:anywhere"><?= e($carer['name']) ?></strong><?php endforeach; ?>
+                        <div class="scales-v2-hour-labels" style="position:relative;height:1728px">
+                            <?php foreach ($calendarHours as $hour): ?><span style="position:absolute;top:<?= $hour * 72 ?>px;font-size:12px"><?= sprintf('%02d:00', $hour) ?></span><?php endforeach; ?>
+                        </div>
+                        <?php foreach ($visibleCarers as $carer): ?>
+                            <div class="scales-v2-carer-column" style="position:relative;height:1728px;border-left:1px solid #ddd">
+                                <?php foreach ($calendarHours as $hour): ?><div class="scales-v2-hour-line" style="position:absolute;left:0;right:0;top:<?= $hour * 72 ?>px;height:72px;border-top:1px solid #ddd;pointer-events:none"></div><?php endforeach; ?>
+                                <?php foreach (scales_day_segments(array_values(array_filter($mapServices, fn ($service) => (int) $service['carer_id'] === (int) $carer['id'])), $selectedDate) as $service):
+                                    $startMinute = $service['_start_minute'];
+                                    $endMinute = $service['_end_minute'];
+                                    ?>
+                                    <div class="scales-v2-event" style="position:absolute;left:calc(<?= 100 * $service['_lane'] / $service['_lanes'] ?>% + 2px);width:calc(<?= 100 / $service['_lanes'] ?>% - 4px);top:<?= $startMinute * 1.2 ?>px;height:<?= ($endMinute - $startMinute) * 1.2 ?>px;overflow:hidden" title="<?= e($service['patient_name'] . ' ' . substr($service['starts_at'], 11, 5) . ' - ' . substr($service['ends_at'], 11, 5)) ?>"><?php render_service_chip($service, $selectedMunicipality, true, $endMinute - $startMinute); ?></div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php elseif (empty($mapServices)): ?>
                 <div class="empty-state"><strong>Sem escalas neste periodo.</strong><p class="muted">Ajuste os filtros ou adicione uma nova escala para este concelho.</p></div>
             <?php else: ?>
                 <div class="scale-map-scroll">
-                    <table class="scale-map-table scale-map-table-calendar <?= $selectedPeriod === 'day' ? 'hour-view' : 'date-view' ?>">
+                    <table class="scale-map-table scale-map-table-calendar <?= $selectedPeriod === 'week' ? 'calendar-week' : 'calendar-month' ?> date-view">
                         <thead>
                             <tr>
                                 <?php if ($selectedPeriod === 'day'): ?>
@@ -187,7 +267,9 @@ layout('Escalas - Care4All', function () use ($isCarer, $carers, $patients, $mun
                         </tbody>
                     </table>
                 </div>
-            <?php endif; ?>        </section>
+            <?php endif; ?>
+            </div>
+        </section>
     <?php else: ?>
         <section class="card list-panel calendar-panel"><div class="list-panel-head calendar-panel-head"><div><h2>Calend&aacute;rio</h2><p class="muted">Consulta e atualiza os teus servi&ccedil;os.</p></div></div><div class="calendar-body"><div id="calendar"></div></div></section>
     <?php endif; ?>
@@ -210,7 +292,7 @@ layout('Escalas - Care4All', function () use ($isCarer, $carers, $patients, $mun
             <?php if ($isCarer): ?>
                 const calendar = new FullCalendar.Calendar(document.getElementById('calendar'), { locale: 'pt', buttonText: { today: 'Hoje', month: 'M\u00eas', week: 'Semana', day: 'Dia', list: 'Lista' }, allDayText: 'Dia inteiro', noEventsText: 'Sem escalas para mostrar', timeZone: 'Europe/Lisbon', initialView: window.innerWidth < 700 ? 'timeGridDay' : 'timeGridWeek', height: 'auto', headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }, slotMinTime: '00:00:00', slotMaxTime: '24:00:00', events: function (info, success, failure) { const params = new URLSearchParams({ page: 'api.events', start: info.startStr, end: info.endStr }); fetch('index.php?' + params).then(r => r.json()).then(success).catch(failure); }, eventContent: function(arg) { const title = document.createElement('div'); title.className = 'fc-event-title-custom'; title.textContent = arg.event.title; if (arg.event.extendedProps.has_observations) { const obs = document.createElement('span'); obs.className = 'obs-flag'; obs.textContent = 'Obs!!'; title.appendChild(obs); } return { domNodes: [title] }; }, eventClick: function(info) { const event = info.event; const props = event.extendedProps; document.getElementById('carer-selected').hidden = false; document.getElementById('selected-title').textContent = event.title; document.getElementById('selected-address').textContent = props.address || ''; document.getElementById('selected-status').textContent = props.status; document.getElementById('selected-observations').textContent = props.observations || '-'; document.getElementById('selected-pocket').textContent = money(props.pocket_value); document.getElementById('done_id').value = event.id; document.getElementById('undo_id').value = event.id; } }); calendar.render();
             <?php else: ?>
-                document.querySelectorAll('.scale-map-filters select, .scale-map-filters input').forEach((input) => input.addEventListener('change', () => input.form.submit()));
+                document.querySelectorAll('.scale-map-filters select').forEach((input) => input.addEventListener('change', () => input.form.submit()));
                 document.querySelectorAll('[data-service-id]').forEach((button) => button.addEventListener('click', () => { clearService(); document.getElementById('service-form-title').textContent = 'Detalhes da escala'; document.getElementById('service-submit').textContent = 'Guardar altera\u00e7\u00f5es'; document.getElementById('service_id').value = button.dataset.serviceId || ''; document.getElementById('patient_id').value = button.dataset.patientId || ''; document.getElementById('carer_id').value = button.dataset.carerId || ''; document.getElementById('starts_at').value = button.dataset.startsAt || ''; document.getElementById('ends_at').value = button.dataset.endsAt || ''; document.getElementById('hourly_rate').value = button.datasetHourlyRate || button.dataset.hourlyRate || 5; document.getElementById('service_observations').value = button.dataset.observations || ''; document.getElementById('service_municipality').value = button.dataset.municipality || document.getElementById('map_municipality').value; document.querySelectorAll('.selected-service-id').forEach(i => i.value = button.dataset.serviceId || ''); document.getElementById('service-actions').hidden = false; updateServicePocketPreview(); }));
                 document.getElementById('open-new-service')?.addEventListener('click', clearService);
                 document.getElementById('clear-service')?.addEventListener('click', clearService);
@@ -218,13 +300,70 @@ layout('Escalas - Care4All', function () use ($isCarer, $carers, $patients, $mun
             <?php endif; ?>
         });
     </script>
+    <?php if (! $isCarer): ?><script src="assets/scales-v2.js" defer></script><?php endif; ?>
 <?php });
 
-function render_service_chip(array $service, string $selectedMunicipality, bool $unused = false): void { ?>
-    <button class="service-chip status-<?= strtolower(e($service['status'])) ?>" style="--chip-color: <?= e($service['color_hex'] ?: '#299c93') ?>" type="button" data-open-modal="service-modal" data-service-id="<?= $service['id'] ?>" data-patient-id="<?= $service['patient_id'] ?>" data-carer-id="<?= $service['carer_id'] ?>" data-starts-at="<?= e(date_input($service['starts_at'])) ?>" data-ends-at="<?= e(date_input($service['ends_at'])) ?>" data-hourly-rate="<?= e((string) round((float) $service['hourly_rate'])) ?>" data-observations="<?= e($service['observations'] ?? '') ?>" data-municipality="<?= e($service['municipality'] ?? $selectedMunicipality) ?>">
+function render_service_chip(array $service, string $selectedMunicipality, bool $unused = false, int $visibleMinutes = 1440): void {
+    $description = $service['patient_name'] . ', ' . $service['carer_name'] . ', ' . $service['starts_at'] . ' - ' . $service['ends_at'];
+    $geometry = $unused ? 'height:100%;min-height:0;overflow:hidden;width:100%;margin:0;padding:0 4px;border-top:0;border-bottom:0;font-size:12px' : '';
+    ?>
+    <button class="service-chip status-<?= strtolower(e($service['status'])) ?>" style="--chip-color: <?= e(preg_match('/^#[0-9a-f]{6}$/i', $service['color_hex'] ?? '') ? $service['color_hex'] : '#299c93') ?>;<?= $geometry ?>" type="button" title="<?= e($description) ?>" aria-label="<?= e($description) ?>" data-open-modal="service-modal" data-service-id="<?= $service['id'] ?>" data-patient-id="<?= $service['patient_id'] ?>" data-carer-id="<?= $service['carer_id'] ?>" data-starts-at="<?= e(date_input($service['starts_at'])) ?>" data-ends-at="<?= e(date_input($service['ends_at'])) ?>" data-hourly-rate="<?= e((string) (float) $service['hourly_rate']) ?>" data-observations="<?= e($service['observations'] ?? '') ?>" data-municipality="<?= e($service['municipality'] ?? $selectedMunicipality) ?>">
+        <?php if ($unused && $visibleMinutes < 30): ?>
+            <span style="display:<?= $visibleMinutes < 10 ? 'none' : 'block' ?>;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:12px;font-size:10px"><?= e(substr($service['starts_at'], 11, 5) . ' ' . $service['patient_name']) ?></span>
+            <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><?= e($service['patient_name'] . ', ' . $service['carer_name'] . ', ' . substr($service['starts_at'], 11, 5) . ' - ' . substr($service['ends_at'], 11, 5)) ?></span>
+        <?php else: ?>
         <strong><?= date('H:i', strtotime($service['starts_at'])) ?> - <?= date('H:i', strtotime($service['ends_at'])) ?></strong>
         <span><?= e($service['patient_name']) ?></span>
         <span><?= e($service['carer_name']) ?></span>
+        <?php if (!$unused): ?><span class="service-state"><?= e(['SCHEDULED' => 'Agendado', 'DONE' => 'Concluído', 'CANCELLED' => 'Cancelado'][$service['status']] ?? $service['status']) ?></span><?php endif; ?>
         <?php if (trim((string) ($service['observations'] ?? '')) !== ''): ?><em>Obs!!</em><?php endif; ?>
+        <?php endif; ?>
     </button>
 <?php }
+
+function scales_day_segments(array $services, string $date): array
+{
+    $dayStart = $date . ' 00:00:00';
+    $dayEnd = (new DateTimeImmutable($date))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
+    $segments = [];
+    foreach ($services as $service) {
+        $start = max($service['starts_at'], $dayStart);
+        $end = min($service['ends_at'], $dayEnd);
+        if ($start >= $end) {
+            continue;
+        }
+        $service['_start_minute'] = (int) substr($start, 11, 2) * 60 + (int) substr($start, 14, 2);
+        $service['_end_minute'] = $end === $dayEnd ? 1440 : (int) substr($end, 11, 2) * 60 + (int) substr($end, 14, 2);
+        $segments[] = $service;
+    }
+    usort($segments, fn ($a, $b) => [$a['_start_minute'], $a['_end_minute'], $a['id']] <=> [$b['_start_minute'], $b['_end_minute'], $b['id']]);
+    $result = [];
+    $group = [];
+    $laneEnds = [];
+    $groupEnd = -1;
+    $flush = function () use (&$result, &$group, &$laneEnds): void {
+        foreach ($group as $segment) {
+            $segment['_lanes'] = count($laneEnds);
+            $result[] = $segment;
+        }
+        $group = [];
+        $laneEnds = [];
+    };
+    // Historical/cancelled overlaps share horizontal lanes, never cover each other.
+    foreach ($segments as $segment) {
+        if ($segment['_start_minute'] >= $groupEnd) {
+            $flush();
+            $groupEnd = -1;
+        }
+        $lane = 0;
+        while (isset($laneEnds[$lane]) && $laneEnds[$lane] > $segment['_start_minute']) {
+            $lane++;
+        }
+        $laneEnds[$lane] = $segment['_end_minute'];
+        $segment['_lane'] = $lane;
+        $group[] = $segment;
+        $groupEnd = max($groupEnd, $segment['_end_minute']);
+    }
+    $flush();
+    return $result;
+}
