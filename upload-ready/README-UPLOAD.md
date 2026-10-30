@@ -1,6 +1,6 @@
 ﻿# Care4All upload-ready
 
-Esta pasta contem uma versao auto-contida do Care4All para alojamento partilhado/cPanel.
+Esta pasta contém a Care4All V2, em PHP e SQLite, para alojamento partilhado/cPanel.
 
 Nao precisa de Composer, npm, Laravel, artisan ou instalacao no servidor.
 
@@ -12,12 +12,16 @@ Nao precisa de Composer, npm, Laravel, artisan ou instalacao no servidor.
 
 ## Como publicar
 
-1. Envie todo o conteudo da pasta `upload-ready` para a pasta do dominio/subdominio.
+Para atualizar uma instalação existente, siga primeiro `DEPLOY-CARE4ALL-V2.md`
+na raiz do repositório. Preserve a base de dados e `config-local.php`.
+O ZIP de atualização contém apenas código. Não foi executado deploy automático.
+
+1. Envie o conteúdo desta pasta para o domínio/subdomínio, após backup validado e bloqueio temporário de acessos.
    - Exemplo: `public_html/care4all`
    - Ou diretamente para o document root do subdominio.
 2. Confirme que a pasta `data` tem permissoes de escrita.
 3. Abra o dominio no browser.
-4. A base de dados `data/care4all.sqlite` sera criada automaticamente no primeiro acesso.
+4. Numa instalação nova, a base é criada após configurar uma palavra-passe inicial única (mínimo de 12 caracteres). Numa atualização, a base existente recebe apenas alterações incrementais.
 
 ## Login inicial
 
@@ -36,7 +40,11 @@ Todos os dados ficam no ficheiro:
 data/care4all.sqlite
 ```
 
-Para fazer backup, descarregue esse ficheiro regularmente.
+Não copie apenas um SQLite ativo: pode haver dados confirmados no WAL.
+Use a API de backup SQLite por `maintenance/backup.php` (apenas CLI, tarefa única
+no Cron cPanel ou suporte), ou um snapshot consistente com a aplicação parada.
+O script valida a integridade e recusa sobrescrever ficheiros. Consulte o guia
+de publicação para validação e recuperação. Os backups ficam fora da raiz pública.
 
 ## Seguranca
 
@@ -45,8 +53,24 @@ Se o servidor não usar Apache, proteja manualmente a pasta `data`.
 
 ## FullCalendar
 
-O calendario usa FullCalendar por CDN. Isto evita build/npm no servidor.
-Se quiser funcionar 100% offline, descarregue os ficheiros FullCalendar e ajuste os links em `views/scales.php`.
+O calendário da cuidadora usa FullCalendar 6.1.11 incluído em assets/vendor,
+com tradução PT-PT e licença. Não depende de CDN nem de build no servidor.
+O calendário operacional do admin, a lista mobile e a repetição são locais.
+
+## Escalas E Histórico
+
+O dia apresenta até oito cuidadoras por página e todas as 24 horas. Existem
+também semana, mês e lista, com filtros de concelho, estado, utente, cuidadora
+e pesquisa. A repetição permite dias úteis, dias selecionados e intervalos,
+com pré-visualização obrigatória e máximo de 120 ocorrências por lote.
+
+Pedidos repetidos não duplicam serviços; conflitos são verificados novamente
+durante a gravação. Pode escolher criar apenas as ocorrências sem conflito.
+Horas inexistentes ou ambíguas na mudança de hora legal são recusadas.
+
+Para preservar histórico, fichas com serviços/relatórios não são eliminadas.
+As escalas devem ser canceladas. Os relatórios apagados são arquivados na base.
+As regras de Pocket e finanças foram preservadas e estão descritas na auditoria.
 
 
 
