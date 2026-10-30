@@ -25,26 +25,41 @@ function handle_action(string $action): void
 
     if ($action === 'login') {
         $login = trim($_POST['username'] ?? '');
+        $ip = $pdo->prepare('SELECT attempts FROM login_attempts WHERE bucket = ? AND window_started > ?');
+        $ip->execute([hash('sha256', 'ip|' . ($_SERVER['REMOTE_ADDR'] ?? 'local')), time() - 900]);
+        if (login_limited($pdo, $login) || (int) $ip->fetchColumn() >= 30) {
+            reject_action('Demasiadas tentativas. Tente novamente dentro de 15 minutos.', 'login');
+        }
         $stmt = $pdo->prepare("SELECT users.* FROM users LEFT JOIN carers ON carers.id = users.carer_id WHERE users.username = ? OR carers.email = ? ORDER BY users.username = ? DESC LIMIT 1");
         $stmt->execute([$login, $login, $login]);
         $user = $stmt->fetch();
 
         if ($user && password_verify($_POST['password'] ?? '', $user['password'])) {
+            session_regenerate_id(true);
+            $_SESSION = ['_csrf' => bin2hex(random_bytes(32))];
             $_SESSION['user_id'] = $user['id'];
+            audit_event($pdo, 'login');
             redirect('dashboard');
         }
-
+        login_failed($pdo, $login);
         $_SESSION['flash_error'] = 'Credenciais inválidas.';
         redirect('login');
     }
 
     if ($action === 'logout') {
+        $_SESSION = [];
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', ['expires' => time() - 42000, 'path' => $params['path'], 'secure' => $params['secure'], 'httponly' => true, 'samesite' => 'Lax']);
         session_destroy();
         redirect('login');
     }
 
     $user = require_auth();
     $operational = ['ADMIN', 'EDITOR'];
+    if (in_array($action, ['save_report', 'reply_report'], true) && (strlen((string) ($_POST['body'] ?? '')) > 20000 || strlen((string) ($_POST['title'] ?? '')) > 250)) {
+        reject_action('O relatório excede o tamanho permitido.', 'reports');
+    }
+    validate_action($pdo, $action, $user);
 
     if ($action === 'save_carer') {
         require_role($operational);
@@ -62,8 +77,9 @@ function handle_action(string $action): void
             redirect('carers');
         }
 
+        $pdo->beginTransaction();
         if ($id) {
-            $stmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE username = ? AND carer_id != ?');
+            $stmt = $pdo->prepare('SELECT COUNT(*) FROM users WHERE username = ? AND (carer_id IS NULL OR carer_id != ?)');
             $stmt->execute([$name, $id]);
             if ((int) $stmt->fetchColumn() > 0) {
                 $_SESSION['flash_error'] = 'Já existe outro utilizador com esse email.';
@@ -111,6 +127,8 @@ function handle_action(string $action): void
             $pdo->prepare('UPDATE carers SET user_id = ? WHERE id = ?')->execute([$userId, $carerId]);
         }
 
+        audit_event($pdo, $action, $id ?: $carerId);
+        $pdo->commit();
         $_SESSION['flash'] = 'Cuidadora guardada.';
         redirect('carers');
     }
@@ -118,12 +136,15 @@ function handle_action(string $action): void
     if ($action === 'delete_carer') {
         require_role($operational);
         $id = (int) $_POST['id'];
+        $pdo->beginTransaction();
         $stmt = $pdo->prepare('SELECT name FROM carers WHERE id = ?');
         $stmt->execute([$id]);
         $carerName = (string) ($stmt->fetchColumn() ?: 'Cuidadora');
         $pdo->prepare('DELETE FROM users WHERE carer_id = ?')->execute([$id]);
         $pdo->prepare('DELETE FROM carers WHERE id = ?')->execute([$id]);
         record_entity_movement($pdo, 'CARER', $carerName, 'OUT');
+        audit_event($pdo, $action, $id);
+        $pdo->commit();
         $_SESSION['flash'] = 'Cuidadora apagada.';
         redirect('carers');
     }
@@ -152,6 +173,7 @@ function handle_action(string $action): void
         }
 
         $columns = array_merge($fields, ['age', 'client_hourly_rate']);
+        $pdo->beginTransaction();
         if ($id) {
             $set = implode(', ', array_map(fn($column) => $column . ' = ?', $columns));
             $values = array_map(fn($column) => $data[$column] ?? null, $columns);
@@ -167,65 +189,64 @@ function handle_action(string $action): void
             $pdo->prepare('INSERT INTO patients (' . implode(', ', $insertColumns) . ") VALUES ({$placeholders})")->execute($values);
             record_entity_movement($pdo, 'PATIENT', $data['name'], 'IN');
         }
+        audit_event($pdo, $action, $id ?: (int) $pdo->lastInsertId());
+        $pdo->commit();
         $_SESSION['flash'] = 'Cliente guardado.';
         redirect('patients');
     }
     if ($action === 'delete_patient') {
         require_role($operational);
         $id = (int) $_POST['id'];
+        $pdo->beginTransaction();
         $stmt = $pdo->prepare('SELECT name FROM patients WHERE id = ?');
         $stmt->execute([$id]);
         $patientName = (string) ($stmt->fetchColumn() ?: 'Utente');
         $pdo->prepare('DELETE FROM patients WHERE id = ?')->execute([$id]);
         record_entity_movement($pdo, 'PATIENT', $patientName, 'OUT');
+        audit_event($pdo, $action, $id);
+        $pdo->commit();
         $_SESSION['flash'] = 'Cliente apagado.';
         redirect('patients');
     }
+    if ($action === 'preview_service') {
+        require_role($operational);
+        $result = scheduling_preview($pdo, $_POST);
+        if (!$result['errors']) {
+            $token = bin2hex(random_bytes(24));
+            $plan = scheduling_plan($pdo, $_POST);
+            $_SESSION['service_previews'] = array_slice($_SESSION['service_previews'] ?? [], -9, null, true);
+            $_SESSION['service_previews'][$token] = ['hash' => hash('sha256', json_encode($plan, JSON_THROW_ON_ERROR)), 'expires' => time() + 1800];
+            $result['preview_token'] = $token;
+        }
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode($result, JSON_THROW_ON_ERROR);
+        exit;
+    }
+
     if ($action === 'save_service') {
         require_role($operational);
-        $serviceId = (int) ($_POST['id'] ?? 0);
-        $patientId = (int) $_POST['patient_id'];
-        $carerId = (int) $_POST['carer_id'];
-        $startTimestamp = strtotime($_POST['starts_at'] ?? '');
-        $endTimestamp = strtotime($_POST['ends_at'] ?? '');
-        $start = $startTimestamp ? date('Y-m-d H:i:00', $startTimestamp) : '';
-        $end = $endTimestamp ? date('Y-m-d H:i:00', $endTimestamp) : '';
-        $rate = max(5, min(15, (float) ($_POST['hourly_rate'] ?? 5)));
-        $observations = trim($_POST['observations'] ?? '');
-        $municipality = trim($_POST['municipality'] ?? '');
-        $allowedMunicipalities = ['Portimão', 'Lagos', 'Lagoa', 'Albufeira', 'Silves'];
-        $now = now();
-
-        if (! in_array($municipality, $allowedMunicipalities, true)) {
-            $_SESSION['flash_error'] = 'Selecione o concelho da escala.';
-            redirect('scales');
+        try {
+            $plan = scheduling_plan($pdo, $_POST);
+            if (($_POST['recurrence_mode'] ?? 'none') !== 'none') {
+                $preview = $_SESSION['service_previews'][$_POST['preview_token'] ?? ''] ?? null;
+                if (!$preview || $preview['expires'] < time() || !hash_equals($preview['hash'], hash('sha256', json_encode($plan, JSON_THROW_ON_ERROR)))) {
+                    reject_action('Pré-visualize as escalas antes de guardar. A seleção foi alterada ou expirou.', 'scales');
+                }
+            }
+            $result = scheduling_commit($pdo, $_POST);
+            if (!$result['valid']) reject_action('Existem escalas em conflito. Pré-visualize e corrija a seleção.', 'scales');
+            $_SESSION['flash'] = count($result['service_ids']) . ' escala(s) guardada(s). ' . count($result['conflicts']) . ' conflito(s) ignorado(s).';
+        } catch (InvalidArgumentException $error) {
+            reject_action($error->getMessage(), 'scales');
         }
-
-        if (! $startTimestamp || ! $endTimestamp || $endTimestamp <= $startTimestamp) {
-            $_SESSION['flash_error'] = 'Confirme a hora de entrada e a hora de saída.';
-            redirect('scales');
-        }
-
-        if (has_overlap($carerId, $start, $end, $serviceId ?: null)) {
-            $_SESSION['flash_error'] = 'A cuidadora já tem escala nesse horário.';
-            redirect('scales');
-        }
-
-        if ($serviceId) {
-            $pdo->prepare('UPDATE services SET patient_id = ?, carer_id = ?, starts_at = ?, ends_at = ?, hourly_rate = ?, observations = ?, municipality = ?, updated_at = ? WHERE id = ?')
-                ->execute([$patientId, $carerId, $start, $end, $rate, $observations, $municipality, $now, $serviceId]);
-        } else {
-            $pdo->prepare('INSERT INTO services (patient_id, carer_id, starts_at, ends_at, hourly_rate, observations, municipality, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-                ->execute([$patientId, $carerId, $start, $end, $rate, $observations, $municipality, 'SCHEDULED', $now, $now]);
-        }
-
-        $_SESSION['flash'] = 'Escala guardada.';
-        header('Location: index.php?page=scales&municipality=' . urlencode($municipality) . '&scale_date=' . urlencode(substr($start, 0, 10)));
+        $_SESSION['scales_municipality'] = $plan['municipality'];
+        header('Location: index.php?page=scales&municipality=' . urlencode($plan['municipality']) . '&scale_date=' . urlencode(substr($plan['occurrences'][0]['starts_at'], 0, 10)));
         exit;
     }
 
     if ($action === 'cancel_service') {
         require_role($operational);
+        audit_event($pdo, $action, (int) ($_POST['id'] ?? 0));
         $pdo->prepare("UPDATE services SET status = 'CANCELLED', updated_at = ? WHERE id = ?")->execute([now(), (int) $_POST['id']]);
         redirect('scales');
     }
@@ -239,7 +260,7 @@ function handle_action(string $action): void
     if ($action === 'done_service' || $action === 'undo_service') {
         $user = require_role(['CARER']);
         $serviceId = (int) $_POST['id'];
-        $stmt = $pdo->prepare('SELECT * FROM services WHERE id = ? AND carer_id = ?');
+        $stmt = $pdo->prepare("SELECT * FROM services WHERE id = ? AND carer_id = ? AND status != 'CANCELLED'");
         $stmt->execute([$serviceId, $user['carer_id']]);
         if (! $stmt->fetch()) {
             http_response_code(403);
@@ -253,6 +274,7 @@ function handle_action(string $action): void
             $pdo->prepare("UPDATE services SET status = 'SCHEDULED', done_at = NULL, done_by_user_id = NULL, updated_at = ? WHERE id = ?")
                 ->execute([now(), $serviceId]);
         }
+        audit_event($pdo, $action, $serviceId);
         redirect('scales');
     }
 
@@ -261,6 +283,7 @@ function handle_action(string $action): void
         $pdo->prepare('UPDATE carers SET age = ?, phone = ?, email = ?, updated_at = ? WHERE id = ?')
             ->execute([$_POST['age'] !== '' ? (int) $_POST['age'] : null, trim($_POST['phone']), trim($_POST['email']), now(), $user['carer_id']]);
         $_SESSION['flash'] = 'Perfil atualizado.';
+        audit_event($pdo, $action, (int) $user['carer_id']);
         redirect('profile');
     }
 
@@ -279,7 +302,7 @@ function handle_action(string $action): void
         if ($user['role'] === 'CARER') {
             $carerId = (int) $user['carer_id'];
             $patientId = (int) ($_POST['patient_id'] ?? 0);
-            if ($patientId <= 0) {
+            if ($patientId <= 0 || !may_report_patient($pdo, $user, $patientId)) {
                 $_SESSION['flash_error'] = 'Selecione o utente associado ao relatório.';
                 redirect('reports');
             }
@@ -288,7 +311,9 @@ function handle_action(string $action): void
         } else {
             require_role(['ADMIN', 'EDITOR']);
             $carerId = (int) ($_POST['carer_id'] ?? 0);
-            if ($carerId <= 0) {
+            $exists = $pdo->prepare('SELECT 1 FROM carers WHERE id = ?');
+            $exists->execute([$carerId]);
+            if ($carerId <= 0 || !$exists->fetchColumn()) {
                 $_SESSION['flash_error'] = 'Selecione a cuidadora associada ao relatório.';
                 redirect('reports');
             }
@@ -296,6 +321,7 @@ function handle_action(string $action): void
             $stmt->execute([$title, $body, (int) $user['id'], $user['role'], $carerId, $now, $now]);
         }
 
+        audit_event($pdo, $action, (int) $pdo->lastInsertId());
         $_SESSION['flash'] = 'Relatório criado.';
         redirect('reports');
     }
@@ -304,6 +330,7 @@ function handle_action(string $action): void
         $user = require_auth();
         $reportId = (int) ($_POST['id'] ?? 0);
         if ($user['role'] === 'CARER') {
+            $pdo->prepare("UPDATE report_replies SET read_by_carer_at = COALESCE(read_by_carer_at, ?) WHERE report_id = ? AND sender_role != 'CARER' AND report_id IN (SELECT id FROM reports WHERE carer_id = ? AND deleted_at IS NULL)")->execute([now(), $reportId, $user['carer_id']]);
             $stmt = $pdo->prepare('UPDATE reports SET read_by_carer_at = COALESCE(read_by_carer_at, ?), updated_at = ? WHERE id = ? AND carer_id = ? AND sender_role != ?');
             $stmt->execute([now(), now(), $reportId, (int) $user['carer_id'], 'CARER']);
         } else {
@@ -322,7 +349,7 @@ function handle_action(string $action): void
             redirect('reports');
         }
 
-        $stmt = $pdo->prepare('SELECT * FROM reports WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT * FROM reports WHERE id = ? AND deleted_at IS NULL');
         $stmt->execute([$reportId]);
         $original = $stmt->fetch();
         if (! $original) {
@@ -347,8 +374,11 @@ function handle_action(string $action): void
 
         $now = now();
         $stmt = $pdo->prepare('INSERT INTO report_replies (report_id, sender_user_id, sender_role, body, created_at) VALUES (?, ?, ?, ?, ?)');
+        $pdo->beginTransaction();
         $stmt->execute([$reportId, (int) $user['id'], $senderRole, $body, $now]);
         $pdo->prepare('UPDATE reports SET updated_at = ? WHERE id = ?')->execute([$now, $reportId]);
+        audit_event($pdo, $action, $reportId);
+        $pdo->commit();
         $_SESSION['flash'] = 'Resposta adicionada ao histórico do relatório.';
         redirect('reports');
     }
@@ -356,14 +386,15 @@ function handle_action(string $action): void
         $user = require_auth();
         $reportId = (int) ($_POST['id'] ?? 0);
         if ($user['role'] === 'CARER') {
-            $stmt = $pdo->prepare('DELETE FROM reports WHERE id = ? AND carer_id = ?');
-            $stmt->execute([$reportId, (int) $user['carer_id']]);
+            $stmt = $pdo->prepare('UPDATE reports SET deleted_at = ? WHERE id = ? AND sender_user_id = ?');
+            $stmt->execute([now(), $reportId, (int) $user['id']]);
         } else {
             require_role(['ADMIN', 'EDITOR']);
-            $stmt = $pdo->prepare('DELETE FROM reports WHERE id = ?');
-            $stmt->execute([$reportId]);
+            $stmt = $pdo->prepare('UPDATE reports SET deleted_at = ? WHERE id = ?');
+            $stmt->execute([now(), $reportId]);
         }
-        $_SESSION['flash'] = 'Relatório apagado.';
+        audit_event($pdo, $action, $reportId);
+        $_SESSION['flash'] = 'Relatório arquivado.';
         redirect('reports');
     }
     if ($action === 'save_user') {
@@ -371,6 +402,7 @@ function handle_action(string $action): void
         $id = (int) ($_POST['id'] ?? 0);
         $role = $_POST['role'];
         $carerId = $_POST['carer_id'] !== '' ? (int) $_POST['carer_id'] : null;
+        $pdo->beginTransaction();
         if ($id) {
             if ($_POST['password'] !== '') {
                 $pdo->prepare('UPDATE users SET name = ?, username = ?, password = ?, role = ?, carer_id = ?, updated_at = ? WHERE id = ?')
@@ -383,6 +415,8 @@ function handle_action(string $action): void
             $pdo->prepare('INSERT INTO users (name, username, password, role, carer_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
                 ->execute([trim($_POST['name']), trim($_POST['username']), password_hash($_POST['password'], PASSWORD_DEFAULT), $role, $carerId, now(), now()]);
         }
+        audit_event($pdo, $action, $id ?: (int) $pdo->lastInsertId());
+        $pdo->commit();
         redirect('users');
     }
 
@@ -436,14 +470,25 @@ function route(string $page): void
 function events_api(): never
 {
     $user = require_auth();
+    try {
+        $rangeStart = new DateTimeImmutable((string) ($_GET['start'] ?? '-1 month'));
+        $rangeEnd = new DateTimeImmutable((string) ($_GET['end'] ?? '+1 month'));
+        if ($rangeEnd <= $rangeStart || $rangeEnd->getTimestamp() - $rangeStart->getTimestamp() > 366 * 86400) throw new InvalidArgumentException();
+    } catch (Throwable $error) {
+        http_response_code(400);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Selecione um intervalo válido, até um ano.']);
+        exit;
+    }
     $params = [];
     $sql = "SELECT services.*, patients.name AS patient_name, patients.address, carers.name AS carer_name, carers.color_hex
             FROM services
             JOIN patients ON patients.id = services.patient_id
             JOIN carers ON carers.id = services.carer_id
             WHERE services.starts_at < ? AND services.ends_at > ?";
-    $params[] = date('Y-m-d H:i:s', strtotime($_GET['end'] ?? '+1 month'));
-    $params[] = date('Y-m-d H:i:s', strtotime($_GET['start'] ?? '-1 month'));
+    $zone = new DateTimeZone(APP_TIMEZONE);
+    $params[] = $rangeEnd->setTimezone($zone)->format('Y-m-d H:i:s');
+    $params[] = $rangeStart->setTimezone($zone)->format('Y-m-d H:i:s');
 
     if ($user['role'] === 'CARER') {
         $sql .= ' AND services.carer_id = ?';

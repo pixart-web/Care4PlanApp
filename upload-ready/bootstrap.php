@@ -4,7 +4,20 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
 
+ini_set('display_errors', '0');
+ini_set('session.use_strict_mode', '1');
+session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'samesite' => 'Lax', 'path' => '/']);
 session_start();
+require_once __DIR__ . '/lib/security.php';
+require_once __DIR__ . '/lib/scheduling.php';
+set_exception_handler('application_exception');
+if (PHP_SAPI !== 'cli') {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: same-origin');
+    header("Content-Security-Policy: frame-ancestors 'self'; base-uri 'self'; form-action 'self'");
+    header('Cache-Control: no-store');
+}
 
 function db(): PDO
 {
@@ -22,6 +35,7 @@ function db(): PDO
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
     $pdo->exec('PRAGMA foreign_keys = ON');
+    $pdo->exec('PRAGMA busy_timeout = 5000');
 
     migrate($pdo);
     seed($pdo);
@@ -158,9 +172,9 @@ function migrate(PDO $pdo): void
     ensure_column($pdo, 'carers', 'pocket_adjustment', 'REAL NOT NULL DEFAULT 0');
     ensure_column($pdo, 'services', 'observations', 'TEXT NULL');
     ensure_column($pdo, 'services', 'municipality', 'TEXT NULL');
-    $pdo->exec("UPDATE services SET municipality = CASE WHEN (SELECT city FROM patients WHERE patients.id = services.patient_id) IN ('Portimão', 'Lagos', 'Lagoa', 'Albufeira', 'Silves') THEN (SELECT city FROM patients WHERE patients.id = services.patient_id) ELSE 'Portimão' END WHERE municipality IS NULL OR municipality = ''");
     ensure_column($pdo, 'report_replies', 'read_by_carer_at', 'TEXT NULL');
-    sync_carer_usernames($pdo);
+    migrate_v2($pdo);
+    scheduling_migrate($pdo);
 }
 
 
@@ -200,25 +214,21 @@ function ensure_column(PDO $pdo, string $table, string $column, string $definiti
 
 function seed(PDO $pdo): void
 {
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ?');
-    $insert = $pdo->prepare('INSERT INTO users (name, username, password, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
-    $update = $pdo->prepare('UPDATE users SET name = ?, password = ?, role = ?, carer_id = NULL, updated_at = ? WHERE username = ?');
-    $password = password_hash(INITIAL_ADMIN_PASSWORD, PASSWORD_DEFAULT);
-    $now = now();
-
-    foreach (INITIAL_ADMINS as $admin) {
-        $stmt->execute([$admin]);
-        if ($stmt->fetchColumn()) {
-            $update->execute([$admin, $password, 'ADMIN', $now, $admin]);
-        } else {
-            $insert->execute([$admin, $admin, $password, 'ADMIN', $now, $now]);
+    $pdo->exec('BEGIN IMMEDIATE');
+    try {
+        if ((int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() === 0) {
+            if (!valid_new_password(INITIAL_ADMIN_PASSWORD)) {
+                throw new RuntimeException('Initial setup requires a configured password.');
+            }
+            $insert = $pdo->prepare('INSERT INTO users (name, username, password, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)');
+            foreach (INITIAL_ADMINS as $admin) {
+                $insert->execute([$admin, $admin, password_hash(INITIAL_ADMIN_PASSWORD, PASSWORD_DEFAULT), 'ADMIN', now(), now()]);
+            }
         }
-    }
-
-    $generic = $pdo->prepare("SELECT id FROM users WHERE username = 'admin' AND role = 'ADMIN'");
-    $generic->execute();
-    if ($generic->fetchColumn()) {
-        $pdo->exec("DELETE FROM users WHERE username = 'admin' AND role = 'ADMIN'");
+        $pdo->exec('COMMIT');
+    } catch (Throwable $error) {
+        $pdo->exec('ROLLBACK');
+        throw $error;
     }
 }
 
@@ -238,7 +248,7 @@ function csrf_token(): string
 
 function verify_csrf(): void
 {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && ! hash_equals($_SESSION['_csrf'] ?? '', $_POST['_csrf'] ?? '')) {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && (empty($_SESSION['_csrf']) || !is_string($_POST['_csrf'] ?? null) || !hash_equals($_SESSION['_csrf'], $_POST['_csrf']))) {
         http_response_code(419);
         exit('Sessao expirada. Volte atras e tente novamente.');
     }

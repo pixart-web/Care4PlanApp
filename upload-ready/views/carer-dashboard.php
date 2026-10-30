@@ -13,7 +13,7 @@ $stmt = $pdo->prepare("SELECT COALESCE(SUM((julianday(ends_at) - julianday(start
 $stmt->execute([$carerId, $todayStart, $todayEnd]);
 $todayHours = (float) $stmt->fetchColumn();
 
-$stmt = $pdo->prepare("SELECT id, title, created_at FROM reports WHERE carer_id = ? AND sender_role != 'CARER' AND read_by_carer_at IS NULL ORDER BY created_at DESC");
+$stmt = $pdo->prepare("SELECT id, title, created_at FROM reports WHERE deleted_at IS NULL AND carer_id = ? AND sender_role != 'CARER' AND read_by_carer_at IS NULL ORDER BY created_at DESC");
 $stmt->execute([$carerId]);
 $newReports = $stmt->fetchAll();
 
@@ -21,6 +21,7 @@ $stmt = $pdo->prepare("SELECT reports.id, reports.title, MAX(report_replies.crea
     FROM reports
     JOIN report_replies ON report_replies.report_id = reports.id
     WHERE reports.carer_id = ?
+        AND reports.deleted_at IS NULL
         AND reports.sender_role = 'CARER'
         AND report_replies.sender_role != 'CARER'
         AND report_replies.read_by_carer_at IS NULL

@@ -14,3 +14,8 @@ yarn-error.log
 /tools/
 /php-server.*.log
 /upload-ready/config-local.php
+/upload-ready/data/*.sqlite-*
+/output/
+/tests/.runtime/
+/.runtime/
+*.backup.sqlite

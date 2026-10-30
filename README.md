@@ -1,6 +1,13 @@
 # Care4All
 
-SaaS Laravel 11 para gestão de escalas de apoio domiciliário da Ciclone D'abraços.
+A aplicação atual Care4All V2 está em `upload-ready/`: PHP 8.1+ e SQLite,
+compatível com cPanel, sem Composer ou npm em produção.
+
+Consulte `AUDIT-CARE4ALL-V2.md`, `DEPLOY-CARE4ALL-V2.md` e `tests/README.md`
+antes de atualizar. Nunca substitua a base de dados ou a configuração local.
+
+As restantes pastas Laravel são uma implementação inicial histórica e não
+foram migradas nem alteradas neste upgrade.
 
 ## Versao sem instalacao no servidor
 

@@ -4,6 +4,12 @@ $pdo = db();
 $isCarer = $user['role'] === 'CARER';
 $carers = $pdo->query('SELECT * FROM carers ORDER BY name')->fetchAll();
 $patients = $pdo->query('SELECT * FROM patients ORDER BY name')->fetchAll();
+if ($isCarer) {
+    $stmt = $pdo->prepare("SELECT DISTINCT patients.id, patients.name FROM patients JOIN services ON services.patient_id = patients.id WHERE services.carer_id = ? AND services.status != 'CANCELLED' ORDER BY patients.name");
+    $stmt->execute([$user['carer_id']]);
+    $patients = $stmt->fetchAll();
+    $carers = [];
+}
 
 $selectSql = "SELECT reports.*, carers.name AS carer_name, patients.name AS patient_name, users.name AS sender_name,
         COALESCE(reply_counts.total_replies, 0) AS reply_count
@@ -18,21 +24,13 @@ $selectSql = "SELECT reports.*, carers.name AS carer_name, patients.name AS pati
     ) reply_counts ON reply_counts.report_id = reports.id";
 
 if ($isCarer) {
-    $stmt = $pdo->prepare($selectSql . " WHERE reports.carer_id = ? ORDER BY reports.updated_at DESC, reports.created_at DESC");
+    $stmt = $pdo->prepare($selectSql . " WHERE reports.deleted_at IS NULL AND reports.carer_id = ? ORDER BY reports.updated_at DESC, reports.created_at DESC");
     $stmt->execute([(int) $user['carer_id']]);
 } else {
     require_role(['ADMIN', 'EDITOR']);
-    $stmt = $pdo->query($selectSql . " ORDER BY reports.updated_at DESC, reports.created_at DESC");
+    $stmt = $pdo->query($selectSql . " WHERE reports.deleted_at IS NULL ORDER BY reports.updated_at DESC, reports.created_at DESC");
 }
 $reports = $stmt->fetchAll();
-if ($isCarer) {
-    $markRepliesRead = $pdo->prepare("UPDATE report_replies
-        SET read_by_carer_at = COALESCE(read_by_carer_at, ?)
-        WHERE sender_role != 'CARER'
-            AND read_by_carer_at IS NULL
-            AND report_id IN (SELECT id FROM reports WHERE carer_id = ? AND sender_role = 'CARER')");
-    $markRepliesRead->execute([now(), (int) $user['carer_id']]);
-}
 $replyHistory = [];
 if (! empty($reports)) {
     $ids = array_map(fn($report) => (int) $report['id'], $reports);
@@ -115,7 +113,7 @@ layout('Relatórios - Care4All', function () use ($isCarer, $carers, $patients, 
                                 </form>
                             </div>
                         </div>
-                        <details class="report-history">
+                        <details class="report-history" data-report-read="<?= (int) $report['id'] ?>" data-csrf="<?= e(csrf_token()) ?>">
                             <summary>Abrir histórico</summary>
                             <div class="history-thread">
                                 <div class="history-entry">
