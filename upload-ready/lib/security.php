@@ -79,9 +79,20 @@ function reject_action(string $message, string $page): never
 
 function validate_action(PDO $pdo, string $action, array $user): void
 {
+    if (in_array($action, ['save_carer', 'save_patient', 'save_service', 'preview_service', 'cancel_service'], true)) require_role(['ADMIN', 'EDITOR']);
+    if (in_array($action, ['save_user', 'delete_user'], true)) require_role(['ADMIN']);
+    if ($action === 'save_profile') require_role(['CARER']);
     $pages = ['save_user' => 'users', 'save_carer' => 'carers', 'save_patient' => 'patients', 'save_profile' => 'profile'];
     $page = $pages[$action] ?? 'dashboard';
     if (isset($pages[$action])) {
+        if ($action !== 'save_profile' && ($_POST['id'] ?? '') !== '') {
+            $id = filter_var($_POST['id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($id === false) reject_action('Identificador inválido.', $page);
+            $table = ['save_user' => 'users', 'save_carer' => 'carers', 'save_patient' => 'patients'][$action];
+            $exists = $pdo->prepare('SELECT 1 FROM ' . $table . ' WHERE id = ?');
+            $exists->execute([$id]);
+            if (!$exists->fetchColumn()) reject_action('O registo já não existe.', $page);
+        }
         foreach ($_POST as $value) {
             if (is_string($value) && strlen($value) > 20000) reject_action('Um dos campos excede o tamanho permitido.', $page);
         }
