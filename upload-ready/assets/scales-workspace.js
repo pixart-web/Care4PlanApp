@@ -1,0 +1,84 @@
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('service-form');
+  if (!form) return;
+  const field = (name) => form.elements.namedItem(name);
+  const money = (value) => Number(value || 0).toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' });
+  const labels = { SCHEDULED: 'Agendado', DONE: 'Concluído', CANCELLED: 'Cancelado' };
+  const rail = document.getElementById('planning-rail');
+  const toggle = document.getElementById('toggle-planning-filters');
+  const toggleRail = (open) => {
+    rail.hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    document.querySelector('.planning-body').classList.toggle('rail-open', open);
+    if (open) rail.querySelector('button').focus();
+  };
+  toggle.addEventListener('click', () => toggleRail(rail.hidden));
+  document.querySelector('[data-close-rail]').addEventListener('click', () => { toggleRail(false); toggle.focus(); });
+  document.querySelector('.conflict-indicator')?.addEventListener('click', () => toggleRail(true));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !rail.hidden && !document.querySelector('.modal-backdrop:not([hidden])')) {
+      toggleRail(false);
+      toggle.focus();
+    }
+  });
+  document.querySelectorAll('[form="scale-filter-form"]').forEach((input) => input.addEventListener('change', () => input.form.requestSubmit()));
+
+  function previewContext() {
+    const rate = Number(field('hourly_rate').value);
+    const start = new Date(field('starts_at').value);
+    const end = new Date(field('ends_at').value);
+    document.getElementById('service-pocket-preview').textContent = money(Math.max(0, (end - start) / 3600000) * rate);
+    for (const [name, selector] of [['patient_id', '[data-preview-patient]'], ['carer_id', '[data-preview-carer]'], ['municipality', '[data-preview-municipality]']]) {
+      form.querySelector(selector).textContent = field(name).value ? field(name).selectedOptions[0].textContent : 'Por selecionar';
+    }
+  }
+  function clearService() {
+    form.reset();
+    field('id').value = '';
+    const municipality = document.getElementById('map_municipality').value;
+    field('municipality').value = ['all', '__unassigned'].includes(municipality) ? field('municipality').options[0].value : municipality;
+    field('starts_at').value = form.dataset.date + 'T09:00';
+    field('ends_at').value = form.dataset.date + 'T10:00';
+    document.getElementById('service-form-title').textContent = 'Nova escala';
+    document.getElementById('service-submit').textContent = 'Associar';
+    document.getElementById('service-actions').hidden = true;
+    previewContext();
+  }
+  function selectService(button) {
+    clearService();
+    const data = button.dataset;
+    for (const [name, value] of Object.entries({ id: data.serviceId, patient_id: data.patientId, carer_id: data.carerId, starts_at: data.startsAt, ends_at: data.endsAt, hourly_rate: data.hourlyRate, observations: data.observations, municipality: data.municipality })) field(name).value = value || '';
+    // Preserve legacy decimal rates that are not present in the integer selector.
+    if (!field('hourly_rate').value && data.hourlyRate) {
+      field('hourly_rate').add(new Option(money(data.hourlyRate) + '/h', data.hourlyRate));
+      field('hourly_rate').value = data.hourlyRate;
+    }
+    document.querySelectorAll('.selected-service-id').forEach((input) => { input.value = data.serviceId; });
+    document.getElementById('service-form-title').textContent = 'Editar escala';
+    document.getElementById('service-submit').textContent = 'Guardar alterações';
+    document.getElementById('service-actions').hidden = false;
+    const date = new Date(data.startsAt);
+    const duration = Math.max(0, (new Date(data.endsAt) - date) / 3600000);
+    for (const [id, value] of Object.entries({ 'detail-patient': data.patientName, 'detail-carer': data.carerName, 'detail-date': date.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' }), 'detail-time': data.startsAt.slice(11, 16) + ' – ' + data.endsAt.slice(11, 16), 'detail-municipality': data.municipality || 'Sem concelho', 'detail-rate': money(data.hourlyRate) + '/h', 'detail-pocket': money(duration * Number(data.hourlyRate)), 'detail-observations': data.observations || 'Sem observações.' })) document.getElementById(id).textContent = value;
+    const status = document.getElementById('detail-status');
+    status.textContent = labels[data.status] || data.status;
+    status.className = 'detail-status status-' + data.status.toLowerCase();
+    document.getElementById('detail-conflict').hidden = data.hasConflict !== '1';
+    form.dispatchEvent(new CustomEvent('service-selected'));
+    previewContext();
+  }
+  document.querySelectorAll('[data-service-id]').forEach((button) => button.addEventListener('click', () => selectService(button)));
+  document.querySelectorAll('[data-select-service]').forEach((button) => button.addEventListener('click', () => {
+    const original = document.querySelector(`[data-service-id="${button.dataset.selectService}"]`);
+    if (original) selectService(original);
+  }));
+  document.getElementById('edit-selected-service').addEventListener('click', () => {
+    window.closeCareModal?.('service-details');
+    window.openCareModal?.('service-modal', document.getElementById('edit-selected-service'));
+  });
+  document.getElementById('open-new-service').addEventListener('click', clearService);
+  document.getElementById('clear-service').addEventListener('click', clearService);
+  form.addEventListener('input', previewContext);
+  form.addEventListener('change', previewContext);
+  clearService();
+});

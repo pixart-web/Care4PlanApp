@@ -1,0 +1,146 @@
+/* Atelier planning surface: temporal geometry remains in the existing PHP view. */
+.care-agenda { min-width:0; }
+.care-agenda .page-head { margin-bottom:18px; }
+.eyebrow { font-size:11px; color:#717A75; margin:0 0 6px; }
+.agenda-view-switch { display:flex; gap:3px; padding:3px; border:1px solid var(--line); border-radius:5px; }
+.agenda-view-switch .btn { border:0; background:transparent; font-size:12px; min-height:32px; padding:6px 12px; }
+.agenda-view-switch [aria-pressed=true] { background:#183A32; color:#FFFEFB; }
+.agenda-date-nav { display:flex; align-items:end; gap:8px; padding:0 0 20px; border-bottom:1px solid var(--line); }
+.agenda-date-form { display:flex; align-items:end; gap:8px; margin:0; }.agenda-date-form .field { margin:0; }
+.agenda-date-nav .input, .agenda-date-nav .btn { min-height:38px; }.agenda-day-link { flex-shrink:0; }
+.service-list { border-top:1px solid var(--line); }
+.service-row { display:grid; grid-template-columns:130px minmax(0,1fr) auto; align-items:start; gap:20px; padding:20px 0; border-bottom:1px solid var(--line); }
+.service-row-time { font-size:13px; font-weight:550; color:#183A32; font-variant-numeric:tabular-nums; }
+.service-row-time small { display:block; margin-top:6px; font-size:10px; color:#717A75; }
+.service-row-body { min-width:0; }.service-row-body h3 { font:20px/1.25 Georgia,serif; margin:0 0 5px; color:#242C2A; overflow-wrap:anywhere; }.service-row-body p { font-size:12px; }
+.service-row-actions { display:grid; justify-items:end; gap:10px; }.service-row-actions form { margin:0; }.service-row-actions .btn { min-height:40px; }
+.service-row .service-state { display:inline-flex; background:#f3e6d9; color:#86513b; padding:4px 8px; border-radius:3px; font-size:11px; }
+.service-row .service-state.status-done { color:#315543; background:#e4ece4; }.service-row .service-state.status-cancelled { background:#e9e8e2; color:#717A75; }
+.service-row.status-cancelled { opacity:.7; }
+.service-details { margin-top:14px; font-size:12px; }.service-details summary { color:#183A32; cursor:pointer; padding:7px 0; width:fit-content; }
+.service-details dl, #carer-selected dl { display:grid; grid-template-columns:80px minmax(0,1fr); gap:12px; font-size:12px; }.service-details dd, #carer-selected dd { margin:0; overflow-wrap:anywhere; }.service-details dt, #carer-selected dt { color:#717A75; }.service-observations { white-space:pre-wrap; }
+#carer-calendar .fc { margin-top:20px; }#carer-calendar .fc-toolbar-title { font:23px Georgia,serif; }#carer-calendar .fc-button { border-radius:4px; font-size:12px; }#carer-calendar .fc-timegrid-slot { height:36px; }
+#carer-calendar table { min-width:0; }
+.carer-dashboard .stats { margin-top:18px; }.dashboard-agenda .section-head { display:flex; align-items:center; justify-content:space-between; }
+@media(max-width:760px) {
+ .care-agenda .page-head { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; }.care-agenda .page-head h1 { font-size:27px; }.care-agenda .page-head .eyebrow { font-size:10px; }
+ .agenda-view-switch .btn { padding:6px 9px; font-size:11px; }.agenda-date-nav { flex-wrap:wrap; gap:6px; }.agenda-date-form { flex:1; min-width:0; }.agenda-date-form .field { flex:1; min-width:0; }.agenda-date-form .input { width:100%; min-width:0; }.agenda-date-form .btn { font-size:11px; padding:7px; }.agenda-day-link { padding:7px; }.agenda-day-link svg { width:15px; }.agenda-date-nav > .agenda-day-link:last-child { margin-left:auto; }
+ .service-row { grid-template-columns:1fr auto; gap:10px; padding:18px 0; }.service-row-time { grid-column:1/-1; font-size:15px; }.service-row-body { grid-column:1; }.service-row-actions { grid-column:2; grid-row:2; }.service-row-body h3 { font-size:21px; }.service-row-actions .btn { min-height:44px; padding:9px 13px; }.service-row .service-state { font-size:10px; }
+ .service-details dl { grid-template-columns:1fr; gap:5px; }.service-details dd { margin-bottom:8px; }.dashboard-agenda .service-row { grid-template-columns:1fr auto; }.dashboard-agenda .service-row-time { grid-column:1/-1; }.dashboard-agenda .service-state { justify-self:end; align-self:start; }
+}
+.preview-result { padding:12px; border-radius:4px; }
+.preview-result-ok { background:#e4ece4; color:#315543; }
+.preview-result-conflict { background:#f4e5da; color:#923e35; }
+#recurrence-preview li small { display:block; color:#923e35; font-size:10px; }
+.planning-heading { display:flex; justify-content:space-between; align-items:center; gap:16px; margin:0 0 18px; }
+.planning-heading h1 { margin-bottom:5px; }
+.planning-heading p { font-size:12px; }
+.planning-heading p span { margin:0 8px; color:var(--sage, #A8BDAE); }
+.planning-workspace { min-width:0; background:var(--paper, #FFFEFB); border-block:1px solid var(--line, #DDDCD4); }
+.planning-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:12px; min-height:66px; padding:12px 0; }
+.planning-toolbar .input { min-height:36px; height:36px; padding:7px 9px; font-size:12px; background:transparent; }
+.date-navigation { display:flex; gap:0; align-items:center; }
+.icon-button { width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; background:transparent; border:1px solid var(--line, #DDDCD4); border-radius:5px; color:var(--ink, #242C2A); cursor:pointer; }
+.icon-button svg, .btn svg, .planning-state-key svg { width:16px; height:16px; stroke-width:1.7; flex-shrink:0; }
+.icon-button:hover { background:var(--soft, #F6F3ED); }
+.date-navigation .icon-button { border:0; width:28px; }
+.today-button { padding:8px 9px; font-size:12px; }
+.planning-date { width:165px; }
+.view-segments { display:flex; background:var(--soft, #F6F3ED); border:1px solid var(--line, #DDDCD4); border-radius:5px; padding:2px; }
+.view-segments a { min-height:30px; padding:7px 13px; border-radius:3px; font-size:12px; text-align:center; }
+.view-segments [aria-current] { color:#FFFEFB; background:#183A32; }
+.planning-municipality { display:flex; align-items:center; gap:5px; margin-left:auto; min-width:160px; }
+.planning-municipality svg { width:16px; color:#717A75; }
+.planning-municipality .input { border:0; }
+.filter-toggle { min-height:36px; font-size:12px; gap:7px; }
+.filter-toggle[aria-expanded=true] { background:#e4ece5; border-color:#A8BDAE; }
+.planning-context { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:10px 0 12px; border-top:1px solid var(--line); }
+.planning-context .scale-map-summary { gap:16px; color:#717A75; font-size:11px; font-weight:400; }
+.planning-context .scale-map-summary span { background:none; border:0; padding:0; font-weight:500; }
+.planning-state-key { display:flex; align-items:center; gap:12px; font-size:10px; color:#717A75; }
+.planning-state-key > span { display:flex; gap:5px; align-items:center; }
+.state-dot { width:6px; height:6px; display:inline-block; border-radius:50%; background:#BD765E; }
+.state-dot.done { background:#71917d; }.state-dot.cancelled { background:#9b9f9c; }
+.conflict-indicator { color:#983c27; display:flex; align-items:center; gap:5px; }
+.planning-body { display:grid; grid-template-columns:minmax(0,1fr); align-items:start; }
+.planning-body.rail-open { grid-template-columns:minmax(0,1fr) 256px; gap:20px; }
+.planning-calendar { min-width:0; }
+.scales-v2-day-scroll { max-height:calc(100dvh - 283px); min-height:340px; overflow:auto; border:1px solid var(--line); border-radius:0; background:#FFFEFB; isolation:isolate; }
+.scales-v2-day-grid { display:grid; align-items:start; position:relative; }
+.scales-v2-carer-heading { display:flex; align-items:center; gap:7px; position:sticky; top:0; z-index:5; min-height:54px; padding:10px 8px; font-size:11px; background:#FFFEFB; border-right:1px solid var(--line); border-bottom:1px solid var(--line); }
+.scales-v2-carer-heading strong { font-weight:550; overflow-wrap:anywhere; }
+.time-corner { position:sticky; left:0; z-index:7; justify-content:center; font-size:10px; color:#717A75; }
+.carer-initial { width:23px; height:23px; flex-shrink:0; display:grid; place-items:center; font-size:11px; background:color-mix(in srgb, var(--carer-color) 12%, #FFFEFB); color:var(--carer-color); border-radius:50%; font-weight:600; }
+.scales-v2-hour-labels { position:sticky; left:0; z-index:4; background:#FFFEFB; font-variant-numeric:tabular-nums; }
+.scales-v2-hour-labels > span { position:absolute; right:9px; font-size:10px; color:#717A75; }
+.scales-v2-carer-column { position:relative; min-width:0; border-right:1px solid #e9e7e0; background:#FFFEFB; }
+.scales-v2-hour-line { position:absolute; left:0; right:0; border-top:1px solid #e9e7e0; pointer-events:none; }
+.scales-v2-event { position:absolute; padding:2px 0; z-index:2; overflow:hidden; }
+.planning-workspace .service-chip { --chip-color:#183A32; display:flex; flex-direction:column; align-items:flex-start; justify-content:flex-start; gap:3px; width:100%; margin:0; padding:8px; color:#242C2A; background:color-mix(in srgb, var(--chip-color) 9%, #FFFEFB); border:0; border-left:3px solid var(--chip-color); border-radius:3px; box-shadow:none; overflow-wrap:anywhere; }
+.planning-workspace .service-chip strong { font-size:11px; font-weight:550; font-variant-numeric:tabular-nums; color:inherit; }
+.planning-workspace .service-chip span { font-size:11px; line-height:1.35; color:inherit; font-weight:450; }
+.planning-workspace .service-chip .service-state { font-size:9px; opacity:.75; }
+.planning-workspace .service-chip:hover { background:color-mix(in srgb, var(--chip-color) 17%, #FFFEFB); }
+.planning-workspace .service-chip.status-done { background:#e7eee7; border-left-color:#759783; }
+.planning-workspace .service-chip.status-cancelled { background:#efeee9; border-left-color:#a0a39e; opacity:.75; text-decoration:none; }
+.planning-workspace .service-chip.status-cancelled strong { text-decoration:line-through; }
+.planning-workspace .service-chip.has-conflict { outline:1px solid #bd765e; outline-offset:-1px; }
+.planning-workspace .service-chip em { font-size:9px; line-height:1.2; padding:1px 3px; border-radius:2px; background:#a13f31; }
+.scales-v2-event .service-chip { height:100%; min-height:0; padding:6px!important; gap:2px; overflow:hidden; }
+.scales-v2-event .service-chip strong { font-size:11px; }.scales-v2-event .service-chip span { font-size:11px; }
+.scales-v2-pager { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; min-height:42px; color:#717A75; font-size:11px; }
+.scales-v2-pager .icon-button { width:28px; height:28px; }
+.planning-rail { border-left:1px solid var(--line); padding:4px 0 18px 18px; align-self:stretch; }
+.rail-heading { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.rail-heading h2 { font-size:19px; margin:0; }.rail-heading .icon-button { border:0; }
+.planning-rail .scale-map-filters { display:grid; grid-template-columns:1fr; gap:10px; }
+.planning-rail .input { font-size:12px; min-height:37px; }
+.planning-rail .label { font-size:11px; }
+.planning-rail .btn { font-size:11px; min-height:34px; padding:8px 11px; }
+.rail-summary { border-top:1px solid var(--line); margin-top:24px; padding-top:18px; }
+.rail-summary h3 { font:20px/1.2 Georgia,serif; margin:0 0 5px; }.rail-summary p { font-size:10px; }
+.rail-summary dl { display:grid; grid-template-columns:1fr auto; gap:12px; font-size:12px; margin:18px 0 0; }
+.rail-summary dt { color:#717A75; }.rail-summary dd { margin:0; font-variant-numeric:tabular-nums; font-weight:550; }
+.rail-conflicts { border-top:1px solid var(--line); margin-top:18px; padding-top:15px; }
+.rail-conflicts h3 { font:18px Georgia,serif; }.conflict-link { display:grid; width:100%; background:transparent; text-align:left; border:0; border-bottom:1px solid var(--line); padding:9px 0; font:12px/1.5 inherit; cursor:pointer; color:#983c27; }
+.planning-period-grid { display:grid; grid-template-columns:repeat(7,minmax(112px,1fr)); overflow:auto; border:1px solid var(--line); max-height:calc(100dvh - 260px); }
+.planning-day { min-width:112px; border-right:1px solid var(--line); background:#FFFEFB; }
+.planning-day header { position:sticky; top:0; z-index:2; display:flex; align-items:baseline; gap:5px; padding:12px 10px; border-bottom:1px solid var(--line); background:#FFFEFB; }
+.planning-day header strong { font:22px Georgia,serif; }.planning-day header span { font-size:11px; color:#717A75; }.planning-day header small { margin-left:auto; font-size:10px; color:#717A75; }
+.planning-day-services { display:grid; align-content:start; gap:7px; padding:7px; min-height:200px; }
+.planning-day.is-empty { background:#f5f3ed; }
+.month-grid .planning-day { border-bottom:1px solid var(--line); }.month-grid .planning-day-services { min-height:100px; }
+#scales-mobile-list { display:grid; gap:0; }
+.planning-list-row { display:grid; grid-template-columns:130px minmax(0,1fr); gap:14px; align-items:start; border-bottom:1px solid var(--line); padding:12px 0; }
+.list-day { display:grid; gap:5px; font-size:12px; }.list-day span { color:#717A75; font-size:11px; }
+.planning-list-row .service-chip { display:grid; grid-template-columns:110px 1fr 1fr 100px; align-items:center; padding:10px 12px; min-height:46px; }
+.planning-list-row .service-chip em { width:fit-content; }
+.planning-workspace .empty-state { min-height:180px; justify-content:center; text-align:center; color:#717A75; }.planning-workspace .empty-state svg { width:25px; height:25px; margin:auto; }
+.service-detail-backdrop { place-items:stretch end; padding:0; background:#183a3222; backdrop-filter:none; }
+.service-detail-panel { height:100dvh; max-height:100dvh; width:380px; border-radius:0; border:0; border-left:1px solid var(--line); box-shadow:-10px 0 40px #183a320d; }
+.service-detail-panel .modal-head { padding:24px; background:#FFFEFB; }.service-detail-panel .modal-head p { font-size:11px; margin:0 0 7px; }.service-detail-panel .modal-head h2 { font-size:24px; }
+.service-detail-panel .modal-body { padding:24px; }.service-detail-panel h3 { font:26px Georgia,serif; margin:22px 0 5px; }.service-detail-panel #detail-carer { color:#717A75; font-size:14px; }
+.detail-status { display:inline-flex; align-items:center; padding:4px 8px; background:#f1e6da; color:#86513b; font-size:11px; border-radius:4px; }.detail-status.status-done { background:#e4ece4; color:#315543; }.detail-status.status-cancelled { background:#eeede8; color:#717A75; }
+.service-details-list { display:grid; grid-template-columns:1fr auto; gap:18px; margin:28px 0; font-size:12px; }.service-details-list dt { color:#717A75; }.service-details-list dd { text-align:right; margin:0; font-variant-numeric:tabular-nums; }
+.detail-notes { border-top:1px solid var(--line); padding-top:18px; margin-bottom:28px; }.detail-notes h3 { font:18px Georgia,serif; margin:0 0 10px; }.detail-notes p { font-size:13px; line-height:1.6; white-space:pre-wrap; overflow-wrap:anywhere; }
+.service-editor-backdrop { padding:24px; backdrop-filter:none; background:#183a3233; }.service-editor { width:min(100%,980px); max-height:calc(100dvh - 48px); border-radius:7px; }
+.service-editor .modal-head { background:#FFFEFB; padding:22px 26px; }.service-editor .modal-head p { font-size:11px; margin-bottom:6px; }.service-editor .modal-head h2 { font-size:27px; }
+.service-editor-grid { display:grid; grid-template-columns:minmax(0,1.25fr) minmax(260px,.85fr); }
+.service-editor-fields { padding:22px 26px; min-width:0; }
+.service-editor-fields fieldset { border:0; padding:0; margin:0 0 16px; }
+.service-editor-fields legend { font-size:13px; font-weight:600; margin-bottom:14px; }.service-editor .label { font-size:11px; }.service-editor .input { font-size:12px; min-height:38px; }
+.service-editor-preview { min-width:0; border-left:1px solid var(--line); padding:22px; background:#f5f4ee; }.service-editor-preview h3 { font:22px Georgia,serif; margin:0 0 20px; }
+.preview-context { display:grid; grid-template-columns:72px 1fr; gap:10px; font-size:12px; }.preview-context dt { color:#717A75; }.preview-context dd { margin:0; overflow-wrap:anywhere; }
+.service-editor-preview .pocket-preview { border:0; border-radius:0; border-block:1px solid var(--line); padding:15px 0; margin:20px 0; background:transparent; }.service-editor-preview .pocket-preview span { font-size:11px; font-weight:400; }.service-editor-preview .pocket-preview strong { font-size:18px; }
+.service-editor #recurrence-fields { border:0; margin:0; padding:0; }.service-editor #recurrence-fields legend { margin-bottom:8px; }
+.service-editor #recurrence-fields label:has(input[type=checkbox]) { font-size:11px; min-height:34px; margin:0 8px 3px 0; }.service-editor #recurrence-fields input[type=checkbox] { width:15px; height:15px; }
+.service-editor #recurrence-fields .btn { font-size:10px; padding:6px 8px; min-height:30px; }
+.service-editor #recurrence-preview { margin:0 0 15px; padding:0; background:transparent; border:0; max-height:270px; overflow:auto; font-size:12px; line-height:1.7; }.service-editor #recurrence-preview ol { padding-left:18px; }.service-editor #recurrence-preview:empty::before { content:'Selecione os dados do serviço para verificar datas e disponibilidade.'; color:#717A75; }
+.editor-footer { display:flex; align-items:center; justify-content:flex-end; gap:8px; grid-column:1/-1; margin:0; padding:15px 26px; border-top:1px solid var(--line); background:#FFFEFB; }.editor-footer .btn:first-child { margin-right:auto; }
+.service-danger-actions { padding:14px 26px; border-top:1px solid var(--line); }.service-danger-actions .btn { font-size:11px; min-height:32px; }
+@media(max-width:1100px) { .planning-toolbar { gap:8px; }.view-segments a { padding:7px 10px; }.planning-municipality { margin-left:0; }.planning-body.rail-open { gap:12px; grid-template-columns:minmax(0,1fr) 235px; } }
+@media(max-width:760px) { .planning-heading { align-items:flex-end; margin-bottom:12px; }.planning-heading .btn { font-size:11px; padding:8px 10px; }.planning-heading h1 { font-size:28px; }.planning-heading p { max-width:220px; font-size:10px; }
+ .planning-toolbar { display:grid; grid-template-columns:1fr auto; gap:10px; padding:12px 0; }.date-navigation { grid-column:1; grid-row:2; }.planning-date { width:auto; grid-column:1/-1; grid-row:3; }.view-segments { grid-column:1; grid-row:4; justify-content:space-between; }.filter-toggle { grid-column:2; grid-row:4; }.planning-municipality { grid-column:1/-1; grid-row:1; border-bottom:1px solid var(--line); padding-bottom:8px; }.planning-municipality select { font-size:15px!important; }.planning-context { flex-wrap:wrap; gap:10px; }.planning-state-key { gap:8px; font-size:9px; }.planning-body.rail-open { grid-template-columns:1fr; }.planning-rail { grid-row:1; border-left:0; border-bottom:1px solid var(--line); padding:15px 0 22px; }.planning-calendar { grid-row:2; }.planning-rail .scale-map-filters { grid-template-columns:repeat(2,minmax(0,1fr)); }.rail-summary { margin-top:16px; }.rail-summary dl { grid-template-columns:1fr auto 1fr auto; gap:10px; }
+ .planning-list-row { grid-template-columns:1fr; gap:7px; padding:12px 0; }.list-day { display:flex; justify-content:space-between; font-size:11px; }.planning-list-row .service-chip { display:flex; align-items:flex-start; padding:12px!important; min-height:74px!important; }.planning-list-row .service-chip strong, .planning-list-row .service-chip span { font-size:12px; }
+ .service-editor-backdrop { padding:0; }.service-editor { width:100%; height:100dvh; max-height:100dvh; border-radius:0; }.service-editor-grid { grid-template-columns:1fr; }.service-editor-preview { border-left:0; border-top:1px solid var(--line); padding:20px; }.service-editor-fields { padding:20px; }.service-editor .modal-head { padding:20px; }.editor-footer { padding:15px 20px; position:sticky; bottom:0; z-index:2; flex-wrap:wrap; }.service-editor .form-grid { grid-template-columns:1fr 1fr; }.service-editor .input { min-width:0; padding-inline:7px; }.service-detail-panel { width:min(100%,420px); }.service-danger-actions { padding:14px 20px; }
+}

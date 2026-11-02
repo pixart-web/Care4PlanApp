@@ -14,6 +14,8 @@ if ($user && $user['role'] === 'ADMIN') {
 $bottom = $isCarer
     ? ['dashboard' => 'Início', 'scales' => 'Escalas', 'pocket' => 'Pocket', 'profile' => 'Perfil']
     : ['dashboard' => 'Início', 'scales' => 'Escalas', 'carers' => 'Equipa', 'patients' => 'Utentes'];
+$navIcons = ['dashboard' => 'layout-dashboard', 'scales' => 'calendar-days', 'pocket' => 'wallet', 'profile' => 'user-round', 'reports' => 'notebook-pen', 'carers' => 'users-round', 'patients' => 'heart-handshake', 'settings' => 'settings-2', 'users' => 'contact-round', 'finances' => 'chart-no-axes-combined'];
+$contextLabel = $nav[$active] ?? $title;
 ?>
 <!doctype html>
 <html lang="pt-PT">
@@ -22,8 +24,10 @@ $bottom = $isCarer
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title) ?></title>
     <link rel="stylesheet" href="assets/app.css">
+    <link rel="stylesheet" href="assets/atelier.css">
+    <script src="assets/vendor/lucide-0.468.0.min.js" defer></script>
 </head>
-<body>
+<body class="atelier-app" data-page="<?= e($active) ?>">
 <a class="skip-link" href="#main-content">Saltar para o conteúdo</a>
 <div class="app-shell">
     <aside class="sidebar" aria-label="Menu principal">
@@ -38,16 +42,16 @@ $bottom = $isCarer
         </div>
         <nav class="nav" aria-label="Navegação principal">
             <?php foreach ($nav as $key => $label): ?>
-                <a class="<?= $active === $key ? 'active' : '' ?>" <?= $active === $key ? 'aria-current="page"' : '' ?> href="index.php?page=<?= e($key) ?>"><?= e($label) ?></a>
+                <a class="<?= $active === $key ? 'active' : '' ?>" <?= $active === $key ? 'aria-current="page"' : '' ?> href="index.php?page=<?= e($key) ?>"><i data-lucide="<?= e($navIcons[$key]) ?>" aria-hidden="true"></i><span><?= e($label) ?></span></a>
             <?php endforeach; ?>
         </nav>
         <div class="sidebar-foot">
             <div class="session-bar">
-                <strong>Olá, <?= e($user['name'] ?? '') ?></strong>
+                <strong title="Olá, <?= e($user['name'] ?? '') ?>">Olá, <?= e($user['name'] ?? '') ?></strong>
                 <form method="post">
                     <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
                     <input type="hidden" name="action" value="logout">
-                    <button class="btn btn-secondary" type="submit">Sair</button>
+                    <button class="btn btn-secondary session-logout" type="submit" aria-label="Sair" title="Sair"><i data-lucide="log-out" aria-hidden="true"></i><span class="sr-only">Sair</span></button>
                 </form>
             </div>
         </div>
@@ -60,16 +64,16 @@ $bottom = $isCarer
                 <strong><?= APP_NAME ?></strong>
             </div>
         </div>
-        <button class="navigation-toggle" type="button" aria-label="Abrir menu de navegação" aria-expanded="false" aria-controls="mobile-navigation" data-navigation-toggle><span class="menu-symbol" aria-hidden="true"></span></button>
+        <button class="navigation-toggle" type="button" aria-label="Abrir menu de navegação" aria-expanded="false" aria-controls="mobile-navigation" data-navigation-toggle><i data-lucide="menu" aria-hidden="true"></i></button>
     </header>
     <nav id="mobile-navigation" class="mobile-navigation" aria-label="Todas as páginas" hidden>
         <div class="mobile-user"><strong><?= e($user['name'] ?? '') ?></strong><span class="muted"><?= $isCarer ? 'Cuidadora' : ($user['role'] === 'ADMIN' ? 'Administração' : 'Coordenação') ?></span></div>
-        <?php foreach ($nav as $key => $label): ?><a class="<?= $active === $key ? 'active' : '' ?>" <?= $active === $key ? 'aria-current="page"' : '' ?> href="index.php?page=<?= e($key) ?>"><?= e($label) ?></a><?php endforeach; ?>
+        <?php foreach ($nav as $key => $label): ?><a class="<?= $active === $key ? 'active' : '' ?>" <?= $active === $key ? 'aria-current="page"' : '' ?> href="index.php?page=<?= e($key) ?>"><i data-lucide="<?= e($navIcons[$key]) ?>" aria-hidden="true"></i><span><?= e($label) ?></span></a><?php endforeach; ?>
         <form method="post"><input type="hidden" name="_csrf" value="<?= csrf_token() ?>"><input type="hidden" name="action" value="logout"><button class="btn btn-secondary" type="submit">Sair</button></form>
     </nav>
 
     <main class="main" id="main-content" tabindex="-1">
-        <div class="workspace-head"><span><?= e(COMPANY_NAME) ?></span><span><?= $isCarer ? 'Área da cuidadora' : 'Gestão de cuidados' ?></span></div>
+        <div class="workspace-head"><div class="workspace-context"><span><?= $isCarer ? 'Área da cuidadora' : 'Gestão de cuidados' ?></span><i data-lucide="chevron-right" aria-hidden="true"></i><strong><?= e($contextLabel) ?></strong></div><span class="workspace-company"><?= e(COMPANY_NAME) ?></span></div>
         <?php if ($flash): ?><div class="alert alert-ok" role="status"><?= e($flash) ?></div><?php endif; ?>
         <?php if ($flashError): ?><div class="alert alert-error" role="alert"><?= e($flashError) ?></div><?php endif; ?>
         <?php $content(); ?>
@@ -77,11 +81,11 @@ $bottom = $isCarer
 
     <nav class="bottom-nav" aria-label="Acesso rápido">
         <?php foreach ($bottom as $key => $label): ?>
-            <a class="<?= $active === $key ? 'active' : '' ?>" <?= $active === $key ? 'aria-current="page"' : '' ?> href="index.php?page=<?= e($key) ?>"><?= e($label) ?></a>
+            <a class="<?= $active === $key ? 'active' : '' ?>" <?= $active === $key ? 'aria-current="page"' : '' ?> href="index.php?page=<?= e($key) ?>"><i data-lucide="<?= e($navIcons[$key]) ?>" aria-hidden="true"></i><span><?= e($label) ?></span></a>
         <?php endforeach; ?>
     </nav>
 </div>
-<script src="assets/app.js"></script>
+<script src="assets/app.js" defer></script>
 </body>
 </html>
 

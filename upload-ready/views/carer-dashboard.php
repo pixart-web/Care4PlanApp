@@ -31,11 +31,22 @@ $stmt->execute([$carerId]);
 $answeredReports = $stmt->fetchAll();
 $monthPocket = pocket_for_carer($carerId);
 
-layout('Dashboard - Care4All', function () use ($todayServices, $todayHours, $monthPocket, $newReports, $answeredReports) { ?>
+$stmt = $pdo->prepare("SELECT services.starts_at, services.ends_at, services.municipality, services.status, patients.name AS patient_name
+    FROM services JOIN patients ON patients.id = services.patient_id
+    WHERE services.carer_id = ? AND services.status = 'SCHEDULED'
+        AND services.starts_at BETWEEN ? AND ? AND services.ends_at > ?
+    ORDER BY services.starts_at, services.id LIMIT 5");
+$stmt->execute([$carerId, $todayStart, $todayEnd, now()]);
+$nextServices = $stmt->fetchAll();
+
+layout('O meu dia - Care4All', function () use ($user, $todayServices, $todayHours, $monthPocket, $newReports, $answeredReports, $nextServices) { ?>
+    <link rel="stylesheet" href="assets/atelier-scales.css">
+    <div class="carer-dashboard">
     <div class="page-head">
         <div>
-            <h1>Dashboard</h1>
-            <p class="muted">Resumo do teu dia e do pocket mensal.</p>
+            <p class="eyebrow">O meu dia &middot; <?= date('d/m/Y') ?></p>
+            <h1>Olá, <?= e($user['name'] ?: $user['username']) ?></h1>
+            <p class="muted">A tua agenda de hoje.</p>
         </div>
     </div>
     <?php if (! empty($newReports) || ! empty($answeredReports)): ?>
@@ -53,4 +64,18 @@ layout('Dashboard - Care4All', function () use ($todayServices, $todayHours, $mo
         <div class="card"><p class="muted">Horas hoje</p><div class="stat-num"><?= number_format($todayHours, 1, ',', ' ') ?></div></div>
         <div class="card"><p class="muted">Pocket mensal</p><div class="stat-num"><?= money($monthPocket) ?></div></div>
     </section>
+    <section class="care-agenda dashboard-agenda" aria-labelledby="next-services-title">
+        <header class="section-head"><h2 id="next-services-title">Ainda hoje</h2><a class="btn btn-secondary" href="index.php?page=scales&amp;view=list">Ver agenda</a></header>
+        <div class="service-list">
+            <?php foreach ($nextServices as $service): ?>
+                <article class="service-row service-mobile-card">
+                    <div class="service-row-time"><time datetime="<?= e(str_replace(' ', 'T', $service['starts_at'])) ?>"><?= e(substr($service['starts_at'], 11, 5)) ?></time> &ndash; <time datetime="<?= e(str_replace(' ', 'T', $service['ends_at'])) ?>"><?= e(substr($service['ends_at'], 11, 5)) ?></time></div>
+                    <div class="service-row-body"><h3><?= e($service['patient_name']) ?></h3><p class="muted"><?= e(trim((string) $service['municipality']) ?: 'Sem concelho') ?></p></div>
+                    <span class="service-state status-scheduled">Agendado</span>
+                </article>
+            <?php endforeach; ?>
+            <?php if (! $nextServices): ?><p class="empty-state">Sem mais servi&ccedil;os agendados para hoje.</p><?php endif; ?>
+        </div>
+    </section>
+    </div>
 <?php });

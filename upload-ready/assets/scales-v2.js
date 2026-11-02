@@ -45,15 +45,20 @@ document.addEventListener('DOMContentLoaded', () => {
     <label><input type="checkbox" name="skip_conflicts" value="1"> Criar apenas ocorr\u00eancias sem conflitos</label>
     <button class="btn btn-secondary" type="button" id="preview-service">Pr\u00e9-visualizar</button>
     <div id="recurrence-preview" role="status" aria-live="polite"></div>`;
-  form.querySelector('.modal-actions').before(recurrence);
+  const recurrenceSlot = form.querySelector('[data-recurrence-slot]');
+  if (recurrenceSlot) recurrenceSlot.append(recurrence);
+  else form.querySelector('.modal-actions').before(recurrence);
   const mode = field('recurrence_mode');
   const repeat = document.getElementById('repeat-service');
   const preview = document.getElementById('recurrence-preview');
   const previewButton = document.getElementById('preview-service');
+  form.querySelector('[data-preview-slot]')?.append(preview);
+  form.querySelector('[data-preview-actions]')?.append(previewButton);
   let generation = 0;
   let approved = '';
   let submitting = false;
   const snapshot = () => new URLSearchParams(new FormData(form)).toString();
+  const formatDate = (value) => new Date(value.replace(' ', 'T')).toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: '2-digit' });
 
   function updateMode() {
     const editing = Boolean(field('id').value);
@@ -140,7 +145,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!response.ok && !Array.isArray(result.errors)) throw new Error(result.message || 'N\u00e3o foi poss\u00edvel verificar as escalas.');
       preview.replaceChildren();
       const summary = document.createElement('p');
-      summary.textContent = `${result.count || 0} ocorr\u00eancia(s). ${result.eligible_count ?? result.count ?? 0} dispon\u00edvel(is), ${result.skipped_count || 0} ignorada(s). ${result.valid ? 'Pode guardar.' : 'N\u00e3o \u00e9 poss\u00edvel guardar.'}`;
+      summary.className = result.valid ? 'preview-result preview-result-ok' : 'preview-result preview-result-conflict';
+      const count = result.count || 0;
+      const eligible = result.eligible_count ?? count;
+      const skipped = result.skipped_count || 0;
+      summary.textContent = `${count} ${count === 1 ? 'ocorrência' : 'ocorrências'}. ${eligible} ${eligible === 1 ? 'disponível' : 'disponíveis'}${skipped ? `, ${skipped} ${skipped === 1 ? 'ignorada' : 'ignoradas'}` : ''}. ${result.valid ? 'Pode guardar.' : 'Reveja os conflitos.'}`;
       preview.append(summary);
       for (const error of result.errors || []) {
         const line = document.createElement('p');
@@ -151,7 +160,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const list = document.createElement('ol');
       for (const [index, occurrence] of (result.occurrences || []).entries()) {
         const item = document.createElement('li');
-        item.textContent = `${occurrence.starts_at} \u2013 ${occurrence.ends_at}${conflicts.has(index) ? ' / CONFLITO' : ''}`;
+        item.textContent = `${formatDate(occurrence.starts_at)} · ${occurrence.starts_at.slice(11, 16)} – ${occurrence.ends_at.slice(11, 16)}${conflicts.has(index) ? ' / Conflito' : ''}`;
+        if (conflicts.has(index)) {
+          const conflict = conflicts.get(index);
+          const detail = document.createElement('small');
+          detail.textContent = conflict.existing_starts_at ? `Serviço existente: ${conflict.existing_starts_at.slice(11,16)} – ${conflict.existing_ends_at.slice(11,16)}` : 'Sobreposição neste lote';
+          item.append(detail);
+        }
         list.append(item);
       }
       preview.append(list);
@@ -179,6 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     field('starts_at').focus();
   });
   document.querySelectorAll('[data-service-id]').forEach((button) => button.addEventListener('click', resetRecurrence));
+  form.addEventListener('service-selected', resetRecurrence);
   document.getElementById('open-new-service').addEventListener('click', resetRecurrence);
   document.getElementById('clear-service').addEventListener('click', resetRecurrence);
   form.addEventListener('submit', (event) => {

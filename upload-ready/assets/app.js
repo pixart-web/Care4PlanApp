@@ -2,6 +2,10 @@ function qs(selector) {
   return document.querySelector(selector);
 }
 
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.lucide) window.lucide.createIcons({ attrs: { 'aria-hidden': 'true', 'stroke-width': 1.7 } });
+});
+
 function setupColorButton() {
   document.querySelectorAll('[data-generate-color]').forEach((button) => {
     button.addEventListener('click', () => {
