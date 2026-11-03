@@ -5,7 +5,7 @@ $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
 $version = $pdo->query('SELECT version FROM schema_migrations ORDER BY applied_at DESC LIMIT 1')->fetchColumn();
 layout('Configurações - Care4All', function () use ($secure, $version) { ?>
     <div class="page-head"><div><h1>Configurações</h1><p class="muted">Care4All V2</p></div></div>
-    <section class="list-panel">
+    <section class="card list-panel settings-panel">
         <div class="list-panel-head"><h2>Aplicação</h2></div>
         <dl class="settings-list">
             <dt>Empresa</dt><dd><?= e(COMPANY_NAME) ?></dd>

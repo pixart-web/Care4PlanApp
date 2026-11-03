@@ -1,0 +1,90 @@
+/* Care4All product UI. This layer owns the shared shell and components;
+   patient-calendar geometry remains exclusively in atelier-scales.css. */
+:root { --forest:#173d36; --care-teal:#22776e; --care-aqua:#dbefea; --care-lilac:#ece9f2; --ivory:#f5f6f3; --warmwhite:#ffffff; --graphite:#243b36; --muted:#61716a; --border:#dfe7e2; --line:var(--border); --paper:#fff; --brand-dark:var(--forest); --sage:#a9cfc0; }
+body.atelier-app, body.atelier-login { font-family:"Segoe UI",Arial,sans-serif; font-size:14px; line-height:1.55; color:var(--graphite); background:var(--ivory); }
+.atelier-app h1 { font:600 28px/1.25 "Segoe UI",Arial,sans-serif; letter-spacing:-.6px; color:var(--forest); }
+.atelier-app h2 { font:600 18px/1.4 "Segoe UI",Arial,sans-serif; letter-spacing:-.2px; color:var(--forest); }
+.atelier-app h3 { font:600 15px/1.4 "Segoe UI",Arial,sans-serif; }
+.atelier-app .muted { color:var(--muted); line-height:1.6; }
+.atelier-app .sidebar { width:216px; left:0; top:0; bottom:0; height:100dvh; border-radius:0; background:var(--forest); box-shadow:none; }
+.atelier-app .sidebar-head { padding:28px 18px; border-bottom:1px solid #ffffff18; }
+.atelier-app .brand { gap:10px; font-size:25px; }.atelier-app .brand-logo { width:42px; height:42px; border-radius:10px; }
+.atelier-app .brand .subtitle { font-size:10px; color:#bed9d0; margin-top:3px; }
+.atelier-app .nav { padding:24px 12px; gap:6px; }
+.atelier-app .nav a { min-height:46px; padding:11px 14px; font-size:13px; gap:12px; border-radius:8px; color:#e0ece6; }
+.atelier-app .nav a.active { background:#d3e9df; color:#143e33; font-weight:600; }
+.atelier-app .nav a.active .lucide { color:#226b5d; }.atelier-app .nav a .lucide { color:#b1d2c4; }
+.atelier-app .nav a:hover:not(.active) { background:#ffffff10; }
+.atelier-app .sidebar-foot { margin:0 14px; padding:20px 0; }.atelier-app .session-bar strong { font-size:12px; }
+.atelier-app .main { margin-left:216px; padding:0 32px 48px; max-width:1920px; }
+.atelier-app .workspace-head { min-height:88px; padding:16px 0; margin:0 0 12px; gap:18px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); }
+.atelier-app .workspace-context { flex-wrap:wrap; font-size:12px; gap:8px; }
+.care-day-widget { display:flex; align-items:center; gap:22px; flex-shrink:0; }
+.care-clock { display:flex; align-items:center; gap:10px; }
+.care-sky { display:grid; place-items:center; width:38px; height:38px; border-radius:50%; background:#eeeaf8; color:#64568c; }
+.care-sky[data-day=true] { background:#fff2cf; color:#9b6900; }
+.care-sky svg { width:21px; height:21px; }
+.care-clock time { display:block; font-size:20px; line-height:1.2; font-weight:650; color:var(--forest); font-variant-numeric:tabular-nums; }
+.care-clock [data-care-date] { display:block; font-size:10px; margin-top:3px; color:var(--muted); }
+.care-weather { position:relative; padding-left:20px; border-left:1px solid var(--line); }
+.care-weather summary { cursor:pointer; display:flex; gap:8px; align-items:center; font-size:11px; list-style:none; }
+.care-weather summary::-webkit-details-marker { display:none; }.care-weather summary:after { content:'⌄'; margin-left:6px; }
+.care-weather summary strong { display:block; font-size:12px; font-weight:600; color:var(--forest); }
+.care-weather-panel { position:absolute; top:calc(100% + 18px); right:0; z-index:45; width:290px; max-width:calc(100vw - 32px); padding:20px; background:white; border:1px solid var(--line); border-radius:12px; box-shadow:0 12px 36px #163a3220; }
+.care-weather-panel p { margin:10px 0; font-size:13px; }.care-weather-panel small { display:block; font-size:11px; color:var(--muted); }.care-weather-panel a { display:block; margin:10px 0 16px; color:var(--care-teal); text-decoration:underline; }
+.atelier-app .care-welcome { min-height:170px; margin:18px 0 16px; border:0; border-radius:14px; background:#eeeae0; }
+.care-welcome-copy { padding:28px 32px; width:60%; }.atelier-app .care-welcome h2 { font:34px/1.2 Georgia,serif; letter-spacing:-.7px; margin:0 0 12px; color:#173d36; }
+.care-welcome p { color:#385248; font-size:14px; }.care-welcome img { object-position:70% 37%; }
+.care-message { display:flex; gap:12px; align-items:center; padding:14px 18px; margin:18px 0 26px; background:#e9f3ee; border:1px solid #d9e9df; border-radius:10px; }
+.care-message-icon { color:var(--care-teal); display:grid; place-items:center; flex:0 0 32px; }.care-message-icon svg { width:24px; height:24px; }
+.care-message-label { font-size:10px; font-weight:650; letter-spacing:.03em; color:#4c7160; }.care-message p { font-size:13px; color:#305a48; margin-top:2px; line-height:1.55; }
+.care-message .icon-button { margin-left:auto; flex:0 0 34px; width:34px; height:34px; border:0; background:transparent; color:#356c55; }.care-message .icon-button:hover { background:#d7e9df; }
+.atelier-app .page-head, .atelier-app .planning-heading { margin:0 0 24px; gap:16px; align-items:center; }.atelier-app .page-head > div { min-width:0; }
+.atelier-app .page-head p { margin-top:8px; font-size:13px; max-width:75ch; overflow-wrap:anywhere; }
+.atelier-app .card, .atelier-app .dashboard-section { background:white; border:1px solid var(--line); border-radius:12px; padding:22px; box-shadow:0 2px 4px #1b3e3003; }
+.atelier-app .action-panel { background:#fff; padding:18px 22px; margin-bottom:20px; gap:20px; }
+.atelier-app .action-panel h2 { font-size:16px; margin-bottom:4px; }.atelier-app .action-panel .muted { font-size:12px; }
+.atelier-app .list-panel { padding:0; overflow:hidden; }.atelier-app .list-panel-head { padding:20px 22px; margin:0; border-bottom:1px solid var(--line); align-items:center; }
+.atelier-app .list-panel-head h2 { margin:0 0 3px; }.atelier-app .list-panel-head .muted { font-size:12px; }
+.atelier-app .grid { gap:18px; }.atelier-app .stats, .atelier-app .daily-metrics { gap:16px; border:0; margin:0 0 24px; }
+.atelier-app .stats > .card, .atelier-app .daily-metric { padding:20px 22px; border:1px solid var(--line); border-radius:12px; background:white; box-shadow:none; min-width:0; }
+.atelier-app .stats > .card { position:relative; border-top:3px solid #96c7b6; }.atelier-app .stats > .card:nth-child(2) { border-top-color:#b9b2d1; }.atelier-app .stats > .card:nth-child(3) { border-top-color:#68ad9e; }
+.atelier-app .stat-num, .atelier-app .daily-metric > strong { font:650 28px/1.3 "Segoe UI",Arial,sans-serif; letter-spacing:-.6px; overflow-wrap:anywhere; margin:8px 0; color:var(--forest); }
+.atelier-app .metric-delta { font-size:11px; color:var(--muted); margin-top:8px; }.atelier-app .daily-metric { border-left:1px solid var(--line); border-top:3px solid #b6d8cb; }
+.atelier-app .daily-metric:nth-child(2) { border-top-color:#b9cfdf; }.atelier-app .daily-metric:nth-child(4) { border-top-color:#ddc5be; }
+.atelier-app .finance-stats > .profit-positive { background:#f5faf7; }.atelier-app .finance-stats > .profit-negative { background:#fff6f3; border-top-color:#b96555; }
+.atelier-app .table-wrap:not(.patient-calendar-scroll) { border:0; border-radius:0; scrollbar-gutter:auto; }
+.atelier-app table:not(.patient-calendar) { width:100%; border-collapse:collapse; }
+.atelier-app table:not(.patient-calendar) th { font-size:11px; font-weight:600; background:#f4f7f5; color:#587165; padding:13px 20px; border-bottom:1px solid var(--line); }
+.atelier-app table:not(.patient-calendar) td { padding:15px 20px; font-size:13px; border-bottom:1px solid #eaf0ec; vertical-align:middle; }
+.atelier-app table:not(.patient-calendar) tr:last-child td { border-bottom:0; }
+.atelier-app .finance-panel th:not(:first-child), .atelier-app .finance-panel td:not(:first-child) { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.atelier-app .finance-panel tr.profit-positive td { background:white; }.atelier-app .finance-panel tr.profit-positive td:nth-last-child(-n+2) { color:#227458; }
+.atelier-app .finance-panel tr.profit-negative td { background:#fff7f4; }.atelier-app .finance-panel tr.profit-negative td:nth-last-child(-n+2) { color:#9b3e31; }
+.atelier-app .badge { border-radius:5px; padding:4px 8px; font-size:11px; background:#e5f1e9; color:#356d51; }
+.atelier-app .btn { min-height:40px; padding:9px 16px; border-radius:7px; font-size:12px; font-weight:600; line-height:1.4; }
+.atelier-app .btn-primary { background:var(--care-teal); border-color:var(--care-teal); }.atelier-app .btn-primary:hover { background:#195f57; }
+.atelier-app .btn-secondary { background:white; color:#335e50; border-color:#d3e0d9; }.atelier-app .btn-secondary:hover { background:#f0f6f2; }
+.atelier-app .btn-danger { color:#a24a3d; background:#fff6f3; border-color:#e8cdc5; }
+.atelier-app .input { font:13px/1.5 "Segoe UI",Arial,sans-serif; border-radius:7px; border:1px solid #cedbd3; min-height:42px; padding:9px 12px; background:#fff; }
+.atelier-app .input:focus { outline:3px solid #96c7b63d; outline-offset:0; border-color:#438d77; }.atelier-app .label { font-size:12px; font-weight:600; color:#486454; }
+.atelier-app .field { margin-bottom:16px; }.atelier-app textarea { resize:vertical; }
+.atelier-app .modal-card { border:1px solid var(--line); border-radius:14px; box-shadow:0 20px 70px #133d3424; }.atelier-app .modal-head { padding:20px 24px; border-bottom:1px solid var(--line); }
+.atelier-app .modal-head h2 { font-size:21px; }.atelier-app .modal-body { padding:24px; }.atelier-app .form-section { background:transparent; border:0; border-bottom:1px solid var(--line); padding:0 0 20px; margin:0 0 22px; }.atelier-app .form-section h3 { margin:0 0 16px; }
+.atelier-app .mobile-cards { padding:0 18px; }.atelier-app .mobile-item { padding:20px 0; border-radius:0; background:transparent; }.atelier-app .mobile-line { gap:14px; margin-top:8px; font-size:12px; }.atelier-app .mobile-line > * { min-width:0; overflow-wrap:anywhere; }.atelier-app .mobile-line strong { text-align:right; }
+.atelier-app .empty-state { padding:32px 22px; text-align:left; gap:8px; color:#526f60; }.atelier-app .section-head { text-align:left; padding:0 0 16px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+.atelier-app .dashboard-section { margin-bottom:22px; }.atelier-app .dashboard-filters { padding:16px 18px; border:1px solid var(--line); border-radius:10px; background:#fff; margin-bottom:20px; align-items:end; }.atelier-app .dashboard-filters .field { margin:0; }
+.atelier-app .settings-panel { max-width:900px; padding:24px; background:#fff; border:1px solid var(--line); border-radius:12px; }.atelier-app .settings-list { max-width:none; }
+.atelier-app .carer-dashboard .section-head { justify-content:space-between; }.atelier-app .carer-dashboard .section-head h2 { margin:0; }
+.atelier-app .skip-link { position:fixed; top:8px; left:8px; z-index:100; transform:translateY(-180%); padding:10px 16px; background:white; border:2px solid var(--care-teal); border-radius:6px; }.atelier-app .skip-link:focus { transform:translateY(0); }
+.atelier-login .login-card { border-radius:16px; box-shadow:0 16px 60px #112d2433; }.atelier-login .login-title { font:600 24px/1.3 "Segoe UI",sans-serif; }.atelier-login .btn-primary { background:var(--care-teal); }
+@media(min-width:981px) and (max-width:1250px) { .atelier-app .main { padding-inline:24px; }.care-day-widget { gap:12px; }.care-weather { padding-left:12px; }.atelier-app .daily-metrics { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+@media(max-width:980px) { .atelier-app .sidebar { display:none; }.atelier-app .main { margin-left:0; padding:0 22px 100px; }.atelier-app .top-mobile { background:white; border-bottom:1px solid var(--line); padding:10px 22px; }.atelier-app .workspace-head { min-height:80px; margin:0 0 16px; padding:14px 0; }.atelier-app .workspace-context { max-width:180px; }.care-day-widget { gap:14px; }.care-weather { padding-left:14px; }.atelier-app .bottom-nav { background:#fff; border-color:var(--line); }.atelier-app .bottom-nav a.active { background:#e5f2eb; color:#216b57; box-shadow:inset 0 2px #3e9075; }.atelier-app .mobile-navigation { top:65px; border-radius:0 0 12px 12px; background:white; }.atelier-app .care-welcome h2 { font-size:30px; } }
+@media(max-width:600px) { .atelier-app .main { padding:0 16px 96px; }.atelier-app .workspace-head { flex-wrap:wrap; gap:12px; padding:14px 0; margin-bottom:14px; }.atelier-app .workspace-context { max-width:none; width:100%; font-size:10px; }.care-day-widget { width:100%; justify-content:space-between; }.care-clock time { font-size:19px; }.care-weather { border:0; }.care-weather-panel { right:0; }.care-message { padding:12px; margin:14px 0 22px; gap:8px; }.care-message-icon { display:none; }.care-message p { font-size:12px; }.care-message-label { font-size:9px; }.care-message .icon-button { flex-basis:30px; }.atelier-app .care-welcome { min-height:145px; margin:16px 0; }.care-welcome-copy { width:75%; padding:22px; }.atelier-app .care-welcome h2 { font-size:26px; }.care-welcome p { font-size:12px; max-width:170px; }.atelier-app h1 { font-size:25px; }.atelier-app .page-head { margin-bottom:20px; }.atelier-app .page-head p { font-size:12px; }.atelier-app .card,.atelier-app .dashboard-section { padding:18px; }.atelier-app .action-panel { align-items:stretch; gap:16px; }.atelier-app .list-panel { padding:0; }.atelier-app .list-panel-head { padding:18px; }.atelier-app .stats,.atelier-app .daily-metrics { gap:10px; }.atelier-app .stats > .card,.atelier-app .daily-metric { padding:16px; }.atelier-app .stat-num,.atelier-app .daily-metric > strong { font-size:25px; }.atelier-app .section-head { flex-direction:row; align-items:center; text-align:left; }.atelier-app .modal-card { border-radius:10px; }.atelier-app .modal-head,.atelier-app .modal-body { padding:18px; }.atelier-app .settings-panel { padding:18px; }.atelier-app .dashboard-filters { padding:14px; } }
+@media(prefers-reduced-motion:no-preference) { .atelier-app .btn, .atelier-app .nav a { transition:background-color .15s,border-color .15s; } }
+.atelier-app .settings-panel { padding:0; }.atelier-app .settings-list { margin:0; padding:0 22px 22px; }.atelier-app .dashboard-agenda { padding:22px; }
+.atelier-app .carer-dashboard .stats { grid-template-columns:repeat(3,minmax(0,1fr)); }
+@media(max-width:600px) { .atelier-app .settings-panel { padding:0; }.atelier-app .settings-list { padding:0 18px 18px; }.atelier-app .dashboard-agenda { padding:18px; }.atelier-app .carer-dashboard .stats { grid-template-columns:repeat(2,minmax(0,1fr)); }.atelier-app .carer-dashboard .stats > .card:last-child { grid-column:1/-1; } }
+@media(max-width:600px) { .atelier-app .page-head { align-items:stretch; }.atelier-app .page-head > .btn { align-self:flex-start; } }
+.atelier-app .finance-panel .mobile-item.profit-positive { background:white; }
+.atelier-app .finance-panel .mobile-item.profit-positive .mobile-line:nth-last-child(-n+2) strong { color:#227458; }

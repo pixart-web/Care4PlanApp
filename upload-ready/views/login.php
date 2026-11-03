@@ -8,10 +8,11 @@ unset($_SESSION['flash_error']);
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Entrar - <?= APP_NAME ?></title>
-    <link rel="stylesheet" href="assets/app.css">
-    <link rel="stylesheet" href="assets/atelier.css">
+    <link rel="stylesheet" href="assets/app.css?v=20261103-ui2">
+    <link rel="stylesheet" href="assets/atelier.css?v=20261103-ui2">
+    <link rel="stylesheet" href="assets/care-ui.css?v=20261103-ui2">
     <script src="assets/vendor/lucide-0.468.0.min.js" defer></script>
-    <script src="assets/app.js" defer></script>
+    <script src="assets/app.js?v=20261103-ui2" defer></script>
 </head>
 <body class="atelier-login">
 <main class="login-page">

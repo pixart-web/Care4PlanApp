@@ -1,0 +1,13 @@
+const fs=require('node:fs');const path=require('node:path');const assert=require('node:assert/strict');
+const {chromium}=require(process.env.CARE4ALL_PLAYWRIGHT || 'playwright');
+const base=process.env.CARE4ALL_TEST_URL || 'http://127.0.0.1:8025';
+if(!/^http:\/\/127\.0\.0\.1:\d+$/.test(base)) throw Error('Local fixtures only');
+const phase=process.env.AUDIT_PHASE || 'after';
+const out=path.resolve('output/visual-audit',phase);fs.mkdirSync(out,{recursive:true});
+(async()=>{const browser=await chromium.launch({channel:'msedge',headless:true});const results=[];const errors=[];
+try {for(const [role,username,pages] of [['admin','Andreia',['dashboard','scales','patients','carers','users','reports','finances','settings']],['carer','fixture-carer-1',['dashboard','scales','pocket','profile','reports']]]){
+const context=await browser.newContext({viewport:{width:1440,height:1000},locale:'pt-PT'});const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.url().startsWith(base)&&r.status()>=400)errors.push(r.status()+' '+r.url());});
+await page.goto(base+'/index.php?page=login');if(role==='admin')await page.screenshot({path:path.join(out,'login.png')});await page.locator('[name=username]').fill(username);await page.locator('[name=password]').fill(process.env.CARE4ALL_TEST_PASSWORD || fs.readFileSync('.runtime/ui-password.txt','utf8'));await page.getByRole('button',{name:'Entrar',exact:true}).click();await page.waitForURL('**page=dashboard');
+for(const width of [1440,768,390]) {await page.setViewportSize({width,height:1000});for(const route of pages){await page.goto(base+'/index.php?page='+route);await page.screenshot({path:path.join(out,role+'-'+route+'-'+width+'.png'),fullPage:true});const metrics=await page.evaluate(()=>({overflow:document.documentElement.scrollWidth>innerWidth,skipVisible:document.querySelector('.skip-link').getBoundingClientRect().bottom>0,icons:document.querySelectorAll('svg.lucide').length}));results.push({role,route,width,...metrics});if(phase==='after'){assert.equal(metrics.overflow,false,role+' '+route+' '+width);assert.equal(metrics.skipVisible,false);assert.ok(metrics.icons>0);assert.equal(await page.locator('[data-care-clock]').count(),1);assert.equal(await page.locator('[data-care-message]').count(),1);}}}
+await context.close();}
+assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'audit.json'),JSON.stringify({results,errors},null,2));console.log('PASS '+results.length+' page/viewport checks; no JS or local asset errors');}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -67,7 +67,57 @@ document.addEventListener('DOMContentLoaded', () => {
     form.dispatchEvent(new CustomEvent('service-selected'));
     previewContext();
   }
-  document.querySelectorAll('[data-service-id]').forEach((button) => button.addEventListener('click', () => selectService(button)));
+  const tooltip = document.getElementById('service-hover');
+  let hovered = null;
+  function hideTooltip() {
+    tooltip.hidden = true;
+    hovered?.removeAttribute('aria-describedby');
+    hovered = null;
+  }
+  function showTooltip(button) {
+    if (document.querySelector('.modal-backdrop:not([hidden])')) return;
+    hideTooltip();
+    hovered = button;
+    const data = button.dataset;
+    tooltip.replaceChildren();
+    const dateTime = (value) => new Date(value).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    for (const [tag, value] of [['strong', data.patientName], ['p', data.carerName], ['p', dateTime(data.startsAt) + ' – ' + dateTime(data.endsAt)], ['p', (data.municipality || 'Sem concelho') + ' · ' + labels[data.status]], ['p', data.observations || 'Sem observações.'], ['small', 'Duplo clique para editar · Enter para detalhes']]) {
+      const element = document.createElement(tag);
+      element.textContent = value;
+      tooltip.append(element);
+    }
+    tooltip.hidden = false;
+    button.setAttribute('aria-describedby', 'service-hover');
+    const rect = button.getBoundingClientRect();
+    const box = tooltip.getBoundingClientRect();
+    tooltip.style.left = Math.max(8, Math.min(rect.left, innerWidth - box.width - 8)) + 'px';
+    tooltip.style.top = Math.max(8, rect.bottom + box.height + 12 > innerHeight ? rect.top - box.height - 8 : rect.bottom + 8) + 'px';
+  }
+  document.querySelectorAll('[data-service-id]').forEach((button) => {
+    button.removeAttribute('title');
+    button.addEventListener('mouseenter', () => showTooltip(button));
+    button.addEventListener('mouseleave', (event) => { if (!tooltip.contains(event.relatedTarget)) hideTooltip(); });
+    button.addEventListener('focus', () => showTooltip(button));
+    button.addEventListener('blur', hideTooltip);
+    button.addEventListener('dblclick', () => {
+      hideTooltip();
+      selectService(button);
+      window.openCareModal?.('service-modal', button);
+    });
+    // A single mouse click keeps the target available for double-click editing.
+    // Keyboard activation and touch open details with an explicit edit action.
+    button.addEventListener('click', (event) => {
+      if (event.detail === 0 || event.pointerType === 'touch') {
+        hideTooltip();
+        selectService(button);
+        window.openCareModal?.('service-details', button);
+      }
+    });
+  });
+  tooltip.addEventListener('mouseleave', hideTooltip);
+  document.addEventListener('scroll', hideTooltip, true);
+  window.addEventListener('resize', hideTooltip);
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape') hideTooltip(); });
   document.querySelectorAll('[data-select-service]').forEach((button) => button.addEventListener('click', () => {
     const original = document.querySelector(`[data-service-id="${button.dataset.selectService}"]`);
     if (original) selectService(original);

@@ -1,0 +1,26 @@
+CARE4ALL - ATUALIZACAO VISUAL - 03/11/2026
+
+Aplicar sobre a versao com o calendario por utente ja instalado.
+
+1. Guardar uma copia dos ficheiros atuais antes de substituir.
+2. Extrair o ZIP na pasta da aplicacao que contem index.php.
+3. Substituir os ficheiros correspondentes dentro de assets/ e views/.
+   Em assets/, incluir tambem a subpasta vendor/.
+4. Nao apagar pastas existentes. Manter data/ e config-local.php intactos.
+5. Reabrir a plataforma e atualizar com Ctrl+F5.
+
+O pacote inclui estilos base, icones e JavaScript necessarios para evitar
+uma mistura de ficheiros antigos com o novo aspeto. Nao contem base de dados,
+configuracoes, index.php, bootstrap, migracoes ou dados de teste.
+Esta atualizacao nao modifica os registos existentes.
+
+Inclui: organizacao visual comum, 10 mensagens de carinho, hora de Lisboa,
+indicador sol/lua em Portimao e previsao minima/maxima diaria do IPMA.
+A previsao e para Portimao; nao e uma medicao da temperatura atual.
+Se a consulta meteorologica falhar, a aplicacao continua a funcionar.
+
+Depois do upload, confirmar: login, icones no menu, Financas, calendario,
+area da cuidadora, hora e mensagens. Os ficheiros assets/care-ui.css e
+assets/care-day.js sao novos e devem ser enviados.
+
+Fonte meteorologica: https://api.ipma.pt/

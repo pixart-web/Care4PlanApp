@@ -23,14 +23,16 @@ if (! in_array($selectedStatus, ['', 'SCHEDULED', 'DONE', 'CANCELLED'], true)) {
     $selectedStatus = '';
 }
 $search = substr(trim((string) ($_GET['search'] ?? '')), 0, 200);
-$periodOptions = ['day' => 'Dia', 'week' => 'Semana', 'month' => 'Mês', 'list' => 'Lista'];
-$selectedPeriod = $_GET['period'] ?? 'day';
+$periodOptions = ['day' => 'Dia', 'week' => 'Semana', 'month' => 'Mês'];
+$selectedPeriod = $_GET['period'] ?? 'week';
 if (! isset($periodOptions[$selectedPeriod])) {
     $selectedPeriod = 'day';
 }
 $selectedDate = $_GET['scale_date'] ?? date('Y-m-d');
-$selectedWeek = $_GET['scale_week'] ?? date('o-\WW');
-$selectedMonth = $_GET['scale_month'] ?? date('Y-m');
+$validDate = is_string($selectedDate) ? DateTimeImmutable::createFromFormat('!Y-m-d', $selectedDate) : false;
+if (!$validDate || $validDate->format('Y-m-d') !== $selectedDate) $selectedDate = date('Y-m-d');
+$selectedWeek = $_GET['scale_week'] ?? (new DateTimeImmutable($selectedDate))->format('o-\WW');
+$selectedMonth = $_GET['scale_month'] ?? substr($selectedDate, 0, 7);
 $monthNames = [1 => 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
 if ($selectedPeriod === 'week') {
@@ -152,17 +154,9 @@ function render_service_chip(array $service, string $selectedMunicipality, bool 
     $description = $service['patient_name'] . ', ' . $service['carer_name'] . ', ' . $service['starts_at'] . ' - ' . $service['ends_at'];
     $geometry = $unused ? 'height:100%;min-height:0;overflow:hidden;width:100%;margin:0;padding:0 4px;border-top:0;border-bottom:0;font-size:12px' : '';
     ?>
-    <button class="service-chip status-<?= strtolower(e($service['status'])) ?> <?= !empty($service['has_conflict']) ? 'has-conflict' : '' ?>" style="--chip-color: <?= e(preg_match('/^#[0-9a-f]{6}$/i', $service['color_hex'] ?? '') ? $service['color_hex'] : '#183A32') ?>;<?= $geometry ?>" type="button" title="<?= e($description) ?>" aria-label="<?= e($description) ?>" data-open-modal="service-details" data-service-id="<?= $service['id'] ?>" data-patient-id="<?= $service['patient_id'] ?>" data-carer-id="<?= $service['carer_id'] ?>" data-starts-at="<?= e(date_input($service['starts_at'])) ?>" data-ends-at="<?= e(date_input($service['ends_at'])) ?>" data-hourly-rate="<?= e((string) (float) $service['hourly_rate']) ?>" data-observations="<?= e($service['observations'] ?? '') ?>" data-municipality="<?= e($service['municipality'] ?? '') ?>" data-patient-name="<?= e($service['patient_name']) ?>" data-carer-name="<?= e($service['carer_name']) ?>" data-status="<?= e($service['status']) ?>" data-has-conflict="<?= !empty($service['has_conflict']) ? '1' : '0' ?>">
-        <?php if ($unused && $visibleMinutes < 30): ?>
-            <span style="display:<?= $visibleMinutes < 10 ? 'none' : 'block' ?>;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:12px;font-size:10px"><?= e(substr($service['starts_at'], 11, 5) . ' ' . $service['patient_name']) ?></span>
-            <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"><?= e($service['patient_name'] . ', ' . $service['carer_name'] . ', ' . substr($service['starts_at'], 11, 5) . ' - ' . substr($service['ends_at'], 11, 5)) ?></span>
-        <?php else: ?>
-        <strong><?= date('H:i', strtotime($service['starts_at'])) ?> - <?= date('H:i', strtotime($service['ends_at'])) ?></strong>
-        <span><?= e($service['patient_name']) ?></span>
-        <span><?= e($service['carer_name']) ?></span>
-        <?php if (!$unused): ?><span class="service-state"><?= e(['SCHEDULED' => 'Agendado', 'DONE' => 'Concluído', 'CANCELLED' => 'Cancelado'][$service['status']] ?? $service['status']) ?></span><?php endif; ?>
-        <?php if (trim((string) ($service['observations'] ?? '')) !== ''): ?><em>Obs!!</em><?php endif; ?>
-        <?php endif; ?>
+    <button class="service-chip status-<?= strtolower(e($service['status'])) ?> <?= !empty($service['has_conflict']) ? 'has-conflict' : '' ?>" style="--chip-color: <?= e(preg_match('/^#[0-9a-f]{6}$/i', $service['color_hex'] ?? '') ? $service['color_hex'] : '#183A32') ?>;<?= $geometry ?>" type="button" title="<?= e($description) ?>" aria-label="<?= e($description) ?>" data-service-id="<?= $service['id'] ?>" data-patient-id="<?= $service['patient_id'] ?>" data-carer-id="<?= $service['carer_id'] ?>" data-starts-at="<?= e(date_input($service['starts_at'])) ?>" data-ends-at="<?= e(date_input($service['ends_at'])) ?>" data-hourly-rate="<?= e((string) (float) $service['hourly_rate']) ?>" data-observations="<?= e($service['observations'] ?? '') ?>" data-municipality="<?= e($service['municipality'] ?? '') ?>" data-patient-name="<?= e($service['patient_name']) ?>" data-carer-name="<?= e($service['carer_name']) ?>" data-status="<?= e($service['status']) ?>" data-has-conflict="<?= !empty($service['has_conflict']) ? '1' : '0' ?>">
+        <span class="matrix-service-label"><?= e($service['_display_time'] ?? (date('H:i', strtotime($service['starts_at'])) . '–' . date('H:i', strtotime($service['ends_at'])))) ?> - <?= e($service['carer_name']) ?></span>
+        <?php if ($service['status'] === 'CANCELLED'): ?><span class="sr-only">Cancelado</span><?php endif; ?>
     </button>
 <?php }
 
