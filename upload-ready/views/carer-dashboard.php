@@ -45,7 +45,7 @@ layout('O meu dia - Care4All', function () use ($user, $todayServices, $todayHou
     <div class="page-head">
         <div>
             <p class="eyebrow">O meu dia &middot; <?= date('d/m/Y') ?></p>
-            <h1>Olá, <?= e($user['name'] ?: $user['username']) ?></h1>
+            <h1>O meu dia</h1>
             <p class="muted">A tua agenda de hoje.</p>
         </div>
     </div>
@@ -64,7 +64,7 @@ layout('O meu dia - Care4All', function () use ($user, $todayServices, $todayHou
         <div class="card"><p class="muted">Horas hoje</p><div class="stat-num"><?= number_format($todayHours, 1, ',', ' ') ?></div></div>
         <div class="card"><p class="muted">Pocket mensal</p><div class="stat-num"><?= money($monthPocket) ?></div></div>
     </section>
-    <section class="care-agenda dashboard-agenda" aria-labelledby="next-services-title">
+    <section class="card care-agenda dashboard-agenda" aria-labelledby="next-services-title">
         <header class="section-head"><h2 id="next-services-title">Ainda hoje</h2><a class="btn btn-secondary" href="index.php?page=scales&amp;view=list">Ver agenda</a></header>
         <div class="service-list">
             <?php foreach ($nextServices as $service): ?>

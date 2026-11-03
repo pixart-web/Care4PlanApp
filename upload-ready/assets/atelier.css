@@ -212,3 +212,37 @@ tr.profit-negative td:last-child { color: #923E35; }
   .atelier-login .login-page { padding: 24px 18px; background-position:70% center; justify-content:center; }
   .atelier-login .login-card { padding: 28px 24px 24px; }
 }
+/* Care4All reference: warm paper, forest navigation and soft white surfaces. */
+body.atelier-app { background:#f3efe7; color:#202b28; font-family:"Segoe UI",Arial,sans-serif; }
+.atelier-app .sidebar { top:16px; left:16px; bottom:16px; height:calc(100dvh - 32px); width:194px; border-radius:0 0 18px 18px; background:#19352e; box-shadow:0 10px 28px #283c2910; }
+.atelier-app .main { margin-left:210px; padding:0 24px 40px; }
+.atelier-app .workspace-head { background:transparent; border:0; margin:0; padding:18px 0; min-height:62px; }
+.atelier-app .brand { font-family:Georgia,serif; font-size:23px; font-weight:400; }
+.atelier-app .brand .subtitle { font-family:"Segoe UI",sans-serif; font-size:9px; }
+.atelier-app .nav a { border-radius:7px; min-height:44px; font-weight:400; }
+.atelier-app .nav a.active { background:#526554; box-shadow:none; }
+.care-welcome { position:relative; display:flex; align-items:center; min-height:190px; margin:0 0 22px; isolation:isolate; overflow:hidden; border-radius:14px; background:#ede8dd; }
+.care-welcome img { position:absolute; right:0; top:0; width:65%; height:100%; object-fit:cover; object-position:70% 35%; z-index:-2; }
+.care-welcome:after { content:""; position:absolute; inset:0; z-index:-1; background:linear-gradient(90deg,#ede8dd 18%,#ede8ddf5 32%,#ede8dd00 70%); }
+.care-welcome-copy { padding:30px; width:52%; }
+.care-welcome h1 { font:36px/1.2 Georgia,serif; color:#142621; margin:0 0 12px; }
+.care-welcome p { margin:0; font-size:15px; }
+.care-welcome blockquote { margin:auto 20px 18px auto; padding:12px 16px; background:#fffaf0e6; font:15px/1.45 Georgia,serif; border-radius:8px; }
+.atelier-app .card, .atelier-app .dashboard-section { background:#fffefb; border:1px solid #e9e4db; border-radius:12px; padding:20px; box-shadow:0 5px 16px #4e493b07; }
+.atelier-app .card .card { box-shadow:none; }
+.atelier-app .list-panel { padding:0 20px 20px; }
+.atelier-app .daily-metrics, .atelier-app .stats { gap:12px; border:0; margin-bottom:22px; }
+.atelier-app .daily-metric, .atelier-app .stats > .card { padding:20px; border:1px solid #ece6dc; border-radius:11px; background:#fffefb; box-shadow:0 5px 14px #4e493b09; }
+.atelier-app .daily-metric > strong, .atelier-app .stat-num { font:32px Georgia,serif; color:#172a23; }
+.atelier-app .daily-metric { border-left:4px solid #cce7d8; }
+.atelier-app .daily-metric:nth-child(2) { border-left-color:#cbdff2; }
+.atelier-app .daily-metric:nth-child(3) { border-left-color:#d2e7df; }
+.atelier-app .daily-metric:nth-child(4) { border-left-color:#f5dc9d; }
+.atelier-app .daily-metric:nth-child(5) { border-left-color:#f3c5be; }
+.atelier-app .dashboard-section { margin-bottom:20px; }
+.atelier-app .btn, .atelier-app .input { border-radius:6px; }
+.atelier-app .table-wrap { border-radius:8px; }
+.atelier-app .modal-card { border-radius:12px; box-shadow:0 18px 70px #152d2922; }
+@media(max-width:980px) { .atelier-app .main { margin-left:0; padding:0 18px 90px; }.care-welcome h1 { font-size:29px; }.care-welcome-copy { padding:24px; }.care-welcome blockquote { display:none; } }
+@media(max-width:540px) { .care-welcome { min-height:156px; }.care-welcome-copy { width:70%; padding:20px; }.care-welcome h1 { font-size:27px; }.care-welcome p { max-width:180px; font-size:12px; }.care-welcome img { width:78%; }.atelier-app .card, .atelier-app .dashboard-section { padding:16px; }.atelier-app .daily-metric { padding:14px; } }
+.care-welcome:after { background:linear-gradient(90deg,#ede8dd 40%,#ede8dd00 78%); }

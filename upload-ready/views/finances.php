@@ -40,7 +40,7 @@ layout('Finanças - Care4All', function () use ($rows, $totalIncome, $totalCost,
     <div class="page-head">
         <div>
             <h1>Finanças</h1>
-            <p class="muted">Margem de lucro por utente no mês atual. O período reinicia automaticamente no dia 1 às 00:00.</p>
+            <p class="muted">Receitas, custos e margem por utente no mês atual.</p>
         </div>
     </div>
 

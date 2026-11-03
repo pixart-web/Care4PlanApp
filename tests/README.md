@@ -53,3 +53,16 @@ Os ficheiros de FullCalendar são agora locais, sem CDN no runtime.
 O teste WAL cobre consistencia do backup, nao simula uma restauracao de conta
 cPanel. A limpeza de ficheiros temporarios e best-effort (Windows pode manter
 handles abertos); qualquer resido contem apenas dados sinteticos.
+
+## Calendário por utente
+
+As escalas de gestão usam agora uma matriz de utentes × dias, com semana por
+omissão e vistas de dia e mês. A vista de lista foi retirada desta área,
+incluindo em telemóvel. A grelha tem deslocamento horizontal próprio e mantém
+os nomes dos utentes fixos. Os horários noturnos são repartidos pelos dias que
+atravessam, mantendo a edição do serviço original.
+
+O teste de browser verifica a matriz, ausência de lista, detalhes ao passar o
+rato, edição com duplo clique e acesso por Enter, além das verificações de
+recorrência e dimensões existentes. A edição também está disponível pelo botão
+nos detalhes, após tocar no serviço em dispositivos táteis.

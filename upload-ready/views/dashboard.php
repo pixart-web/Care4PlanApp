@@ -62,7 +62,7 @@ foreach ($dayServices as $index => $first) {
     }
 }
 $scaleUrl = static function (string $municipality = '', string $status = '', int $carer = 0) use ($selectedDate): string {
-    return 'index.php?' . http_build_query(['page' => 'scales', 'period' => 'list', 'scale_date' => $selectedDate, 'municipality' => $municipality === '' ? 'all' : $municipality, 'status' => $status, 'carer_id' => $carer]);
+    return 'index.php?' . http_build_query(['page' => 'scales', 'period' => 'day', 'scale_date' => $selectedDate, 'municipality' => $municipality === '' ? 'all' : $municipality, 'status' => $status, 'carer_id' => $carer]);
 };
 $newReports = $pdo->query("SELECT reports.id, reports.title, reports.created_at, carers.name AS carer_name FROM reports LEFT JOIN carers ON carers.id = reports.carer_id WHERE reports.deleted_at IS NULL AND reports.sender_role = 'CARER' AND reports.read_by_admin_at IS NULL ORDER BY reports.created_at DESC")->fetchAll();
 

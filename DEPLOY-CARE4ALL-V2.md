@@ -50,7 +50,7 @@ Se ocorrer erro, manter o acesso bloqueado, consultar apenas a referência de er
 - Entrar com a password existente de um administrador e de uma cuidadora. Confirmar que hashes/passwords permanecem válidos após várias páginas.
 - Comparar contagens e serviços existentes, valores de Pocket/finanças e relatórios antes/depois. Não usar dados reais num ambiente público de teste.
 - Com registos fictícios em staging: criar uma escala, repetir segunda a sexta, verificar pré-visualização, conflitos noutro concelho, repetição do pedido, cancelamento/conclusão e respostas a relatórios.
-- Validar dia/semana/mês/lista, filtros, oito cuidadoras por página, navegação mobile e calendário da cuidadora.
+- Validar calendário dia/semana/mês com utentes nas linhas e dias nas colunas, vários serviços por célula, filtros, detalhes ao passar o rato, edição com duplo clique, navegação mobile e calendário da cuidadora.
 - Confirmar que utentes sem concelho continuam sem concelho e não foram convertidos arbitrariamente para Portimão.
 - Verificar logs sem passwords, SQL ou dados clínicos. Reabrir acessos só depois de estes passos passarem.
 

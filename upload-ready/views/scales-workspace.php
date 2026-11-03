@@ -31,29 +31,39 @@ layout('Escalas - Care4All', function () use ($carers, $patients, $municipalitie
         <div class="planning-context"><div class="scale-map-summary"><span><?= count($mapServices) ?> <?= count($mapServices) === 1 ? 'serviço' : 'serviços' ?></span><span><?= count($mapCarers) ?> <?= count($mapCarers) === 1 ? 'cuidadora' : 'cuidadoras' ?></span><span><?= number_format($activeHours, 1, ',', ' ') ?> h</span></div><div class="planning-state-key"><span><b class="state-dot scheduled"></b>Agendado</span><span><b class="state-dot done"></b>Concluído</span><span><b class="state-dot cancelled"></b>Cancelado</span><?php if ($conflictCount): ?><a class="conflict-indicator" href="#planning-conflicts"><i data-lucide="triangle-alert" aria-hidden="true"></i><?= $conflictCount ?> em conflito</a><?php endif; ?></div></div>
         <div class="planning-body">
             <div class="planning-calendar">
-                <div id="scales-mobile-list" <?= $selectedPeriod === 'list' ? '' : 'hidden' ?>>
-                    <?php foreach ($mapServices as $service): ?><article class="planning-list-row"><div class="list-day"><strong><?= date('d/m', strtotime($service['starts_at'])) ?></strong><span><?= e($service['municipality'] ?: 'Sem concelho') ?></span></div><?php render_service_chip($service, $selectedMunicipality); ?></article><?php endforeach; ?>
-                    <?php if (!$mapServices): ?><div class="empty-state"><i data-lucide="calendar-days" aria-hidden="true"></i><strong>Sem serviços neste período.</strong></div><?php endif; ?>
+                <?php
+                $matrixPatients = [];
+                $matrixServices = [];
+                foreach ($servicesByDate as $date => $services) {
+                    foreach ($services as $service) {
+                        $matrixPatients[$service['patient_id']] = $service['patient_name'];
+                        $matrixServices[$service['patient_id']][$date][] = $service;
+                    }
+                }
+                if ($selectedMunicipality === 'all' && !$selectedCarer && !$selectedStatus && !$search) {
+                    foreach ($patients as $patient) {
+                        if (!$selectedPatient || $selectedPatient === (int) $patient['id']) $matrixPatients[$patient['id']] = $patient['name'];
+                    }
+                }
+                asort($matrixPatients, SORT_NATURAL | SORT_FLAG_CASE);
+                ?>
+                <p class="calendar-help" id="calendar-help">Passe o rato sobre um serviço para ver os detalhes. Duplo clique para editar.</p>
+                <div id="scales-desktop-calendar" class="patient-calendar-scroll" data-period="<?= e($selectedPeriod) ?>" tabindex="0" role="region" aria-label="Calendário por utente" aria-describedby="calendar-help">
+                    <table class="patient-calendar">
+                        <caption class="sr-only">Utentes e serviços · <?= e($periodLabel) ?></caption>
+                        <thead><tr><th scope="col" class="patient-corner">Utente</th><?php foreach ($calendarDays as $day): ?><th scope="col" class="<?= $day === date('Y-m-d') ? 'is-today' : '' ?>"><span><?= ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][(int) date('w', strtotime($day))] ?></span><strong><?= date('d/m', strtotime($day)) ?></strong></th><?php endforeach; ?></tr></thead>
+                        <tbody><?php foreach ($matrixPatients as $patientId => $patientName): ?><tr><th scope="row"><span class="patient-avatar" aria-hidden="true"><i data-lucide="user-round"></i></span><span><?= e($patientName) ?></span></th><?php foreach ($calendarDays as $day): ?><td class="<?= $day === date('Y-m-d') ? 'is-today' : '' ?>"><div class="patient-day-services"><?php foreach ($matrixServices[$patientId][$day] ?? [] as $service):
+                            $start = max($service['starts_at'], $day . ' 00:00:00');
+                            $nextDay = (new DateTimeImmutable($day))->modify('+1 day')->format('Y-m-d') . ' 00:00:00';
+                            $end = min($service['ends_at'], $nextDay);
+                            $formatHour = static fn ($value) => date('i', strtotime($value)) === '00' ? date('H', strtotime($value)) . 'h' : date('H', strtotime($value)) . 'h' . date('i', strtotime($value));
+                            $service['_display_time'] = $formatHour($start) . '–' . ($end === $nextDay ? '24h' : $formatHour($end));
+                            render_service_chip($service, $selectedMunicipality);
+                        endforeach; ?><?php if (empty($matrixServices[$patientId][$day])): ?><span class="empty-day" aria-label="Sem serviços">·</span><?php endif; ?></div></td><?php endforeach; ?></tr><?php endforeach; ?></tbody>
+                    </table>
+                    <?php if (!$matrixPatients): ?><div class="empty-state">Sem utentes ou serviços para os filtros selecionados.</div><?php endif; ?>
                 </div>
-                <div id="scales-desktop-calendar" data-period="<?= e($selectedPeriod) ?>" <?= $selectedPeriod === 'list' ? 'hidden' : '' ?>>
-                <?php if ($selectedPeriod === 'day'): ?>
-                    <div class="scales-v2-day-scroll"><div class="scales-v2-day-grid" style="grid-template-columns:56px repeat(<?= max(1, count($visibleCarers)) ?>,minmax(112px,1fr));min-width:<?= 56 + max(1, count($visibleCarers)) * 112 ?>px">
-                        <div class="scales-v2-carer-heading time-corner">Hora</div>
-                        <?php foreach ($visibleCarers as $carer): ?><div class="scales-v2-carer-heading"><span class="carer-initial" style="--carer-color:<?= e(preg_match('/^#[0-9a-f]{6}$/i', $carer['color_hex']) ? $carer['color_hex'] : '#183A32') ?>"><?= e(substr($carer['name'], 0, 1)) ?></span><strong><?= e($carer['name']) ?></strong></div><?php endforeach; ?>
-                        <div class="scales-v2-hour-labels" style="height:1728px"><?php foreach ($calendarHours as $hour): ?><span style="top:<?= $hour * 72 ?>px"><?= sprintf('%02d:00', $hour) ?></span><?php endforeach; ?></div>
-                        <?php foreach ($visibleCarers as $carer): ?><div class="scales-v2-carer-column" style="height:1728px">
-                            <?php foreach ($calendarHours as $hour): ?><div class="scales-v2-hour-line" style="top:<?= $hour * 72 ?>px;height:72px"></div><?php endforeach; ?>
-                            <?php foreach (scales_day_segments(array_values(array_filter($mapServices, fn ($service) => (int) $service['carer_id'] === (int) $carer['id'])), $selectedDate) as $service): $startMinute = $service['_start_minute']; $endMinute = $service['_end_minute']; ?><div class="scales-v2-event" style="left:calc(<?= 100 * $service['_lane'] / $service['_lanes'] ?>% + 3px);width:calc(<?= 100 / $service['_lanes'] ?>% - 6px);top:<?= $startMinute * 1.2 ?>px;height:<?= ($endMinute - $startMinute) * 1.2 ?>px"><?php render_service_chip($service, $selectedMunicipality, true, $endMinute - $startMinute); ?></div><?php endforeach; ?>
-                        </div><?php endforeach; ?>
-                    </div></div>
-                    <nav class="scales-v2-pager" aria-label="Páginas de cuidadoras"><span><?= count($visibleCarers) ?> cuidadoras nesta página <span aria-hidden="true">·</span> <?= $carerPage ?> / <?= $carerPages ?></span><div class="btn-row"><?php if ($carerPage > 1): ?><a class="icon-button" href="<?= e($pageUrl($carerPage - 1)) ?>" aria-label="Cuidadoras anteriores" title="Cuidadoras anteriores"><i data-lucide="chevron-left" aria-hidden="true"></i></a><?php endif; ?><?php if ($carerPage < $carerPages): ?><a class="icon-button" href="<?= e($pageUrl($carerPage + 1)) ?>" aria-label="Cuidadoras seguintes" title="Cuidadoras seguintes"><i data-lucide="chevron-right" aria-hidden="true"></i></a><?php endif; ?></div></nav>
-                <?php else: ?>
-                    <div class="planning-period-grid <?= $selectedPeriod === 'month' ? 'month-grid' : 'week-grid' ?>">
-                        <?php if ($selectedPeriod === 'month'): for ($blank = 1; $blank < (int) date('N', strtotime($calendarDays[0])); $blank++): ?><div class="planning-day is-empty" aria-hidden="true"></div><?php endfor; endif; ?>
-                        <?php foreach ($calendarDays as $day): $dayServices = $servicesByDate[$day] ?? []; ?><section class="planning-day"><header><strong><?= date('d', strtotime($day)) ?></strong><span><?= ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][(int) date('w', strtotime($day))] ?></span><small><?= count($dayServices) ?></small></header><div class="planning-day-services"><?php foreach ($dayServices as $service): render_service_chip($service, $selectedMunicipality); endforeach; ?></div></section><?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-                </div>
+                <div class="service-hover" id="service-hover" role="tooltip" hidden></div>
             </div>
             <aside class="planning-rail" id="planning-rail" hidden>
                 <div class="rail-heading"><h2>Filtros e resumo</h2><button class="icon-button" type="button" data-close-rail aria-label="Fechar filtros" title="Fechar filtros"><i data-lucide="x" aria-hidden="true"></i></button></div>

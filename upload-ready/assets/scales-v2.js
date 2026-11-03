@@ -206,20 +206,5 @@ document.addEventListener('DOMContentLoaded', () => {
     submitting = true;
     submit.disabled = true;
   });
-  const mobile = matchMedia('(max-width: 700px)');
-  const syncViewport = () => {
-    const desktop = document.getElementById('scales-desktop-calendar');
-    const list = mobile.matches || desktop.dataset.period === 'list';
-    document.getElementById('scales-mobile-list').hidden = !list;
-    desktop.hidden = list;
-  };
-  mobile.addEventListener('change', syncViewport);
-  syncViewport();
-  const operationalScroll = document.querySelector('.scales-v2-day-scroll');
-  const firstEvent = document.querySelector('.scales-v2-event');
-  if (operationalScroll && firstEvent) {
-    const firstMinute = Math.min(...[...document.querySelectorAll('.scales-v2-event')].map((event) => parseFloat(event.style.top)));
-    operationalScroll.scrollTop = Math.max(0, firstMinute - 90);
-  }
   resetRecurrence();
 });
