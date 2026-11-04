@@ -50,6 +50,7 @@ try {
     $admin=http_login('Andreia',$password);
     $editor=http_login('fixture-editor',$password);
     $care=http_login('fixture-carer',$password);
+    require __DIR__ . '/technical-http.php';
     test('HTTP login regenerates sessions; cookies use HttpOnly and SameSite',function (): void {
         $cookies=[];
         $response=http_request('/index.php?page=login',$cookies);

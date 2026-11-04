@@ -34,7 +34,11 @@ function migrate_v2(PDO $pdo): void
         CREATE TRIGGER IF NOT EXISTS preserve_user_history BEFORE DELETE ON users
         WHEN EXISTS(SELECT 1 FROM reports WHERE sender_user_id = OLD.id) OR EXISTS(SELECT 1 FROM report_replies WHERE sender_user_id = OLD.id)
         BEGIN SELECT RAISE(ABORT, 'Associated history must be preserved'); END;");
-    $pdo->prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?)')->execute(['v2-security', now()]);
+    $version = $pdo->prepare('SELECT 1 FROM schema_migrations WHERE version = ?');
+    $version->execute(['v2-security']);
+    $applied = (bool) $version->fetchColumn();
+    $version->closeCursor();
+    if (!$applied) $pdo->prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?)')->execute(['v2-security', now()]);
 }
 
 function audit_event(PDO $pdo, string $action, ?int $entityId = null): void
@@ -48,18 +52,19 @@ function login_bucket(string $login): string
     return hash('sha256', strtolower($login) . '|' . ($_SERVER['REMOTE_ADDR'] ?? 'local'));
 }
 
-function login_limited(PDO $pdo, string $login): bool
+function login_limited(PDO $pdo, string $login, ?int $at = null): bool
 {
     $stmt = $pdo->prepare('SELECT attempts FROM login_attempts WHERE bucket = ? AND window_started > ?');
-    $stmt->execute([login_bucket($login), time() - 900]);
+    $stmt->execute([login_bucket($login), ($at ?? time()) - 900]);
     return (int) $stmt->fetchColumn() >= 5;
 }
 
-function login_failed(PDO $pdo, string $login): void
+function login_failed(PDO $pdo, string $login, ?int $at = null): void
 {
-    $pdo->prepare('DELETE FROM login_attempts WHERE window_started < ?')->execute([time() - 900]);
+    $at ??= time();
+    $pdo->prepare('DELETE FROM login_attempts WHERE window_started <= ?')->execute([$at - 900]);
     foreach ([login_bucket($login), hash('sha256', 'ip|' . ($_SERVER['REMOTE_ADDR'] ?? 'local'))] as $bucket) {
-        $pdo->prepare('INSERT INTO login_attempts VALUES(?, 1, ?) ON CONFLICT(bucket) DO UPDATE SET attempts = attempts + 1')->execute([$bucket, time()]);
+        $pdo->prepare('INSERT INTO login_attempts VALUES(?, 1, ?) ON CONFLICT(bucket) DO UPDATE SET attempts = attempts + 1')->execute([$bucket, $at]);
     }
 }
 
@@ -73,15 +78,43 @@ function may_report_patient(PDO $pdo, array $user, int $patientId): bool
 
 function reject_action(string $message, string $page): never
 {
+    if (db()->inTransaction()) db()->rollBack();
     $_SESSION['flash_error'] = $message;
     redirect($page);
 }
 
+/** Reject malformed HTTP values before casts, SQL or typed application calls. */
+function validate_request_shape(): void
+{
+    $invalid = static function (): never {
+        http_response_code(400);
+        exit('Pedido inválido.');
+    };
+    foreach ([$_GET, $_POST] as $source => $values) {
+        foreach ($values as $key => $value) {
+            if ($source === 1 && in_array($key, ['recurrence_dates', 'recurrence_weekdays'], true) && is_array($value)) {
+                if (count($value) > 3660) $invalid();
+                foreach ($value as $item) if (!is_string($item) || strlen($item) > 32 || str_contains($item, "\0")) $invalid();
+                continue;
+            }
+            if (!is_string($value) || str_contains($value, "\0") || strlen($value) > 20000) $invalid();
+            if (in_array($key, ['id', 'patient_id', 'carer_id'], true) && $value !== '' && filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]) === false) $invalid();
+        }
+    }
+    if (isset($_POST['action']) && !in_array($_POST['action'], ['login', 'logout', 'save_carer', 'delete_carer', 'save_patient', 'delete_patient', 'preview_service', 'save_service', 'cancel_service', 'delete_service', 'done_service', 'undo_service', 'save_profile', 'save_report', 'mark_report_read', 'reply_report', 'delete_report', 'save_user', 'delete_user'], true)) $invalid();
+    if (in_array($_POST['action'] ?? '', ['delete_carer', 'delete_patient', 'delete_user', 'cancel_service', 'delete_service', 'done_service', 'undo_service', 'mark_report_read', 'reply_report', 'delete_report'], true) && (int) ($_POST['id'] ?? 0) <= 0) $invalid();
+}
+
 function validate_action(PDO $pdo, string $action, array $user): void
 {
+    // Omitted optional password means no password change when editing.
+    $_POST['password'] ??= '';
     if (in_array($action, ['save_carer', 'save_patient', 'save_service', 'preview_service', 'cancel_service'], true)) require_role(['ADMIN', 'EDITOR']);
     if (in_array($action, ['save_user', 'delete_user'], true)) require_role(['ADMIN']);
     if ($action === 'save_profile') require_role(['CARER']);
+    if ($action === 'save_profile' && (!isset($_POST['age'], $_POST['phone'], $_POST['email']))) {
+        reject_action('Confirme os dados do perfil.', 'profile');
+    }
     $pages = ['save_user' => 'users', 'save_carer' => 'carers', 'save_patient' => 'patients', 'save_profile' => 'profile'];
     $page = $pages[$action] ?? 'dashboard';
     if (isset($pages[$action])) {
@@ -109,7 +142,7 @@ function validate_action(PDO $pdo, string $action, array $user): void
             $stmt = $pdo->prepare('SELECT 1 FROM carers WHERE id != ? AND (color_hex = ? OR (email != ? AND lower(email) = lower(?)))');
             $stmt->execute([(int) ($_POST['id'] ?? 0), $_POST['color_hex'], '', trim((string) ($_POST['email'] ?? ''))]);
             if ($stmt->fetchColumn()) reject_action('A cor ou o email já estão associados a outra cuidadora.', 'carers');
-            if (isset($_POST['pocket_adjustment']) && !is_numeric($_POST['pocket_adjustment'])) reject_action('Introduza um ajuste Pocket válido.', 'carers');
+            if (isset($_POST['pocket_adjustment']) && (!is_numeric($_POST['pocket_adjustment']) || !is_finite((float) $_POST['pocket_adjustment']))) reject_action('Introduza um ajuste Pocket válido.', 'carers');
         }
         if (isset($_POST['age']) && $_POST['age'] !== '' && (!ctype_digit((string) $_POST['age']) || (int) $_POST['age'] > 125)) {
             reject_action('Introduza uma idade válida.', $page);
@@ -117,7 +150,15 @@ function validate_action(PDO $pdo, string $action, array $user): void
         if (isset($_POST['email']) && $_POST['email'] !== '' && !filter_var($_POST['email'], FILTER_VALIDATE_EMAIL)) {
             reject_action('Introduza um endereço de email válido.', $page);
         }
-        if (isset($_POST['client_hourly_rate']) && $_POST['client_hourly_rate'] !== '' && (!is_numeric($_POST['client_hourly_rate']) || (float) $_POST['client_hourly_rate'] < 0)) {
+        if ($action === 'save_patient') {
+            foreach (['birth_date', 'support_start_date'] as $field) {
+                $value = $_POST[$field] ?? '';
+                if ($value === '') continue;
+                $date = DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+                if (!$date || $date->format('Y-m-d') !== $value) reject_action('Introduza uma data válida.', $page);
+            }
+        }
+        if (isset($_POST['client_hourly_rate']) && $_POST['client_hourly_rate'] !== '' && (!is_numeric($_POST['client_hourly_rate']) || !is_finite((float) $_POST['client_hourly_rate']) || (float) $_POST['client_hourly_rate'] < 0)) {
             reject_action('Introduza um valor horário válido.', $page);
         }
     }

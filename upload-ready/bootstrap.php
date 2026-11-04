@@ -214,6 +214,8 @@ function ensure_column(PDO $pdo, string $table, string $column, string $definiti
 
 function seed(PDO $pdo): void
 {
+    // Existing installations need no write lock. Recheck under the lock on first install.
+    if ($pdo->query('SELECT 1 FROM users LIMIT 1')->fetchColumn()) return;
     $pdo->exec('BEGIN IMMEDIATE');
     try {
         if ((int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() === 0) {
