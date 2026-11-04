@@ -2,13 +2,14 @@
 $user = require_auth();
 $pdo = db();
 $isCarer = $user['role'] === 'CARER';
-$carers = $pdo->query('SELECT * FROM carers ORDER BY name')->fetchAll();
-$patients = $pdo->query('SELECT * FROM patients ORDER BY name')->fetchAll();
 if ($isCarer) {
     $stmt = $pdo->prepare("SELECT DISTINCT patients.id, patients.name FROM patients JOIN services ON services.patient_id = patients.id WHERE services.carer_id = ? AND services.status != 'CANCELLED' ORDER BY patients.name");
     $stmt->execute([$user['carer_id']]);
     $patients = $stmt->fetchAll();
     $carers = [];
+} else {
+    $carers = $pdo->query('SELECT id, name FROM carers ORDER BY name')->fetchAll();
+    $patients = $pdo->query('SELECT id, name FROM patients ORDER BY name')->fetchAll();
 }
 
 $selectSql = "SELECT reports.*, carers.name AS carer_name, patients.name AS patient_name, users.name AS sender_name,
