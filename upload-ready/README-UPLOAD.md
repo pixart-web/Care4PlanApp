@@ -60,7 +60,7 @@ O calendário operacional do admin, a lista mobile e a repetição são locais.
 ## Escalas E Histórico
 
 O dia apresenta até oito cuidadoras por página e todas as 24 horas. Existem
-também semana, mês e lista, com filtros de concelho, estado, utente, cuidadora
+também semana, mês e lista, com filtros de concelho, estado, cliente, cuidadora
 e pesquisa. A repetição permite dias úteis, dias selecionados e intervalos,
 com pré-visualização obrigatória e máximo de 120 ocorrências por lote.
 

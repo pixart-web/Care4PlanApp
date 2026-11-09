@@ -42,7 +42,7 @@ test('HTTP patient audit refers to patient rather than movement ID', function ()
 test('HTTP report and profile changes rollback if audit fails', function () use ($pdo,$carer,&$admin,&$care): void {
     $pdo->exec("CREATE TRIGGER fixture_audit_failure BEFORE INSERT ON audit_events WHEN NEW.action IN ('save_report','save_profile') BEGIN SELECT RAISE(ABORT,'fixture'); END");
     try {
-        foreach ([['session'=>&$admin,'post'=>['action'=>'save_report','title'=>'Atomic report','body'=>'Fictional','carer_id'=>$carer]],['session'=>&$care,'post'=>['action'=>'save_profile','age'=>'42','phone'=>'000000001','email'=>'atomic@example.invalid']]] as &$case) {
+        foreach ([['session'=>&$admin,'post'=>['action'=>'save_report','title'=>'Atomic report','body'=>'Fictional','carer_id'=>$carer]],['session'=>&$care,'post'=>['action'=>'save_profile','birth_date'=>'1980-01-02','age'=>'42','phone'=>'000000001','email'=>'atomic@example.invalid']]] as &$case) {
             $before=snapshot($pdo);
             same(500,http_request('/index.php',$case['session']['cookies'],$case['post']+['_csrf'=>$case['session']['csrf']])['status']);
             same($before,snapshot($pdo));
@@ -98,7 +98,7 @@ test('HTTP forbidden action matrix and anonymous routes', function () use ($pdo,
 test('HTTP non-finite money and NUL dates cannot persist', function () use ($pdo,$carer,&$admin): void {
     $before=snapshot($pdo);
     same(302,http_request('/index.php',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'save_patient','name'=>'Bad rate','address'=>'Fictional','client_hourly_rate'=>'1e309'])['status']);
-    same(302,http_request('/index.php',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'save_carer','id'=>$carer,'name'=>'Fixture Carer','email'=>'fixture@example.invalid','phone'=>'000000000','color_hex'=>'#123456','pocket_adjustment'=>'1e309'])['status']);
+    same(302,http_request('/index.php',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'save_carer','birth_date'=>'1980-01-02','id'=>$carer,'name'=>'Fixture Carer','email'=>'fixture@example.invalid','phone'=>'000000000','color_hex'=>'#123456','pocket_adjustment'=>'1e309'])['status']);
     same(400,http_request('/index.php?page=scales&scale_date=%00',$admin['cookies'])['status']);
     check($before===snapshot($pdo),'Non-finite money persisted');
 });
@@ -122,7 +122,7 @@ test('HTTP impossible patient dates cannot persist', function () use ($pdo,&$adm
     check($before===snapshot($pdo),'Invalid birth date persisted');
 });
 test('HTTP carer CRUD keeps linked account atomic and rejects username collision', function () use ($pdo,$password,&$admin): void {
-    $data=['_csrf'=>$admin['csrf'],'action'=>'save_carer','name'=>'CRUD Fixture Carer','phone'=>'000000000','email'=>'crud@example.invalid','color_hex'=>'#a1b2c3','password'=>$password];
+    $data=['_csrf'=>$admin['csrf'],'action'=>'save_carer','birth_date'=>'1980-01-02','name'=>'CRUD Fixture Carer','phone'=>'000000000','email'=>'crud@example.invalid','color_hex'=>'#a1b2c3','password'=>$password];
     same(302,http_request('/index.php',$admin['cookies'],$data)['status']);
     $row=$pdo->query("SELECT * FROM carers WHERE email='crud@example.invalid'")->fetch(); check((bool)$row);
     $linked=$pdo->query('SELECT * FROM users WHERE carer_id='.(int)$row['id'])->fetch(); check((bool)$linked);
@@ -135,4 +135,24 @@ test('HTTP carer CRUD keeps linked account atomic and rejects username collision
     same(302,http_request('/index.php',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'delete_carer','id'=>$row['id']])['status']);
     same(0,(int)$pdo->query('SELECT COUNT(*) FROM users WHERE id='.(int)$linked['id'])->fetchColumn());
     same(0,(int)$pdo->query('SELECT COUNT(*) FROM carers WHERE id='.(int)$row['id'])->fetchColumn());
+});
+test('HTTP profile photos are private and roles cannot access other profiles', function () use ($pdo,$carer,$patient,&$care,&$admin): void {
+    $png=base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=');
+    profile_photo_save($pdo,'carer',$carer,['mime'=>'image/png','content'=>$png]);
+    profile_photo_save($pdo,'patient',$patient,['mime'=>'image/png','content'=>$png]);
+    try {
+        $own=http_request('/index.php?page=photo&kind=carer&id='.$carer,$care['cookies']);same(200,$own['status']);same($png,$own['body']);
+        same(403,http_request('/index.php?page=photo&kind=patient&id='.$patient,$care['cookies'])['status']);
+        same(403,http_request('/index.php?page=photo&kind=carer&id=999999',$care['cookies'])['status']);
+        same(200,http_request('/index.php?page=photo&kind=patient&id='.$patient,$admin['cookies'])['status']);
+        $anonymous=[];same(302,http_request('/index.php?page=photo&kind=carer&id='.$carer,$anonymous)['status']);
+    } finally { $pdo->exec('DELETE FROM profile_photos'); }
+});
+test('HTTP carer creation requires date of birth and photo writes rollback together',function()use($pdo,$password,&$admin):void{
+    $before=snapshot($pdo);
+    same(302,http_request('/index.php',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'save_carer','name'=>'Missing birthday','phone'=>'000000000','email'=>'missing@example.invalid','password'=>$password,'color_hex'=>'#981234'])['status']);
+    same($before,snapshot($pdo));
+    $pdo->beginTransaction();
+    profile_photo_save($pdo,'carer',999999,['mime'=>'image/png','content'=>'fixture rollback only']);$pdo->rollBack();
+    same(0,(int)$pdo->query('SELECT COUNT(*) FROM profile_photos')->fetchColumn());
 });

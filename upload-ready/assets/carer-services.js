@@ -34,7 +34,7 @@
     calendar = new FullCalendar.Calendar(document.getElementById('carer-calendar'), {
       locale: 'pt', timeZone: 'Europe/Lisbon', initialDate: root.dataset.date,
       initialView: window.matchMedia('(max-width: 699px)').matches ? 'timeGridDay' : 'timeGridWeek',
-      height: 'auto', firstDay: 1, nowIndicator: true,
+      height: 'auto', firstDay: 1, nowIndicator: true, slotEventOverlap: false, eventMinHeight: 28, eventShortHeight: 28, dayMaxEvents: 3,
       headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth' },
       buttonText: { today: 'Hoje', month: 'M\u00eas', week: 'Semana', day: 'Dia' },
       allDayText: 'Dia inteiro', noEventsText: 'Sem servi\u00e7os neste per\u00edodo',

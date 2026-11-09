@@ -51,14 +51,14 @@ layout('Relatórios - Care4All', function () use ($isCarer, $carers, $patients, 
     <div class="page-head">
         <div>
             <h1>Relatórios</h1>
-            <p class="muted"><?= $isCarer ? 'Crie relatórios associados a utentes.' : 'Crie relatórios para cuidadoras e acompanhe os relatórios recebidos.' ?></p>
+            <p class="muted"><?= $isCarer ? 'Crie relatórios associados a clientes.' : 'Crie relatórios para cuidadoras e acompanhe os relatórios recebidos.' ?></p>
         </div>
     </div>
 
     <section class="card action-panel">
         <div class="action-panel-text">
             <h2>Criar relatório</h2>
-            <p class="muted"><?= $isCarer ? 'Associe o relatório a um utente.' : 'Associe o relatório a uma cuidadora.' ?></p>
+            <p class="muted"><?= $isCarer ? 'Associe o relatório a um cliente.' : 'Associe o relatório a uma cuidadora.' ?></p>
         </div>
         <div class="btn-row action-buttons">
             <button class="btn btn-primary" type="button" data-open-modal="add-report-modal">Criar</button>
@@ -93,7 +93,7 @@ layout('Relatórios - Care4All', function () use ($isCarer, $carers, $patients, 
                                 <p class="muted">
                                     <?= date('d/m/Y H:i', strtotime($report['created_at'])) ?> · <?= e($senderLabel) ?>
                                     <?php if (! $fromCarer && ! $isCarer): ?> · Para: <?= e($report['carer_name'] ?? '-') ?><?php endif; ?>
-                                    <?php if (! empty($report['patient_name'])): ?> · Utente: <?= e($report['patient_name']) ?><?php endif; ?>
+                                    <?php if (! empty($report['patient_name'])): ?> · Cliente: <?= e($report['patient_name']) ?><?php endif; ?>
                                 </p>
                             </div>
                             <div class="btn-row report-actions">
@@ -143,7 +143,7 @@ layout('Relatórios - Care4All', function () use ($isCarer, $carers, $patients, 
             <div class="modal-head">
                 <div>
                     <h2 id="add-report-title">Criar relatório</h2>
-                    <p class="muted"><?= $isCarer ? 'Selecione o utente e escreva o relatório.' : 'Selecione a cuidadora e escreva o relatório.' ?></p>
+                    <p class="muted"><?= $isCarer ? 'Selecione o cliente e escreva o relatório.' : 'Selecione a cuidadora e escreva o relatório.' ?></p>
                 </div>
                 <button class="modal-close" type="button" data-close-modal aria-label="Fechar">x</button>
             </div>
@@ -151,7 +151,7 @@ layout('Relatórios - Care4All', function () use ($isCarer, $carers, $patients, 
                 <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
                 <input type="hidden" name="action" value="save_report">
                 <?php if ($isCarer): ?>
-                    <label class="field"><span class="label">Utente</span><select class="input" name="patient_id" required><option value="">Selecionar</option><?php foreach ($patients as $patient): ?><option value="<?= $patient['id'] ?>"><?= e($patient['name']) ?></option><?php endforeach; ?></select></label>
+                    <label class="field"><span class="label">Cliente</span><select class="input" name="patient_id" required><option value="">Selecionar</option><?php foreach ($patients as $patient): ?><option value="<?= $patient['id'] ?>"><?= e($patient['name']) ?></option><?php endforeach; ?></select></label>
                 <?php else: ?>
                     <label class="field"><span class="label">Cuidadora</span><select class="input" name="carer_id" required><option value="">Selecionar</option><?php foreach ($carers as $carer): ?><option value="<?= $carer['id'] ?>"><?= e($carer['name']) ?></option><?php endforeach; ?></select></label>
                 <?php endif; ?>

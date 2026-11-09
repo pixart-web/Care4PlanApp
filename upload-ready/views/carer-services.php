@@ -9,7 +9,7 @@ if (! $day || $day->format('Y-m-d') !== $rawDate) {
 }
 $view = in_array($_GET['view'] ?? '', ['list', 'calendar'], true) ? $_GET['view'] : '';
 $stmt = db()->prepare('SELECT services.id, services.starts_at, services.ends_at, services.status,
-    services.municipality, services.observations, services.hourly_rate, patients.name AS patient_name, patients.address
+    services.municipality, services.observations, services.hourly_rate, services.hourly_rate_special, patients.name AS patient_name, patients.address
     FROM services JOIN patients ON patients.id = services.patient_id
     WHERE services.carer_id = ? AND services.starts_at < ? AND services.ends_at > ?
     ORDER BY services.starts_at, services.ends_at, services.id');
@@ -68,5 +68,5 @@ layout('Os meus serviços - Care4All', function () use ($day, $today, $view, $se
     </section>
     <script src="assets/vendor/fullcalendar-6.1.11.global.min.js" defer></script>
     <script src="assets/vendor/fullcalendar-pt-6.1.11.global.min.js" defer></script>
-    <script src="assets/carer-services.js" defer></script>
+    <script src="assets/carer-services.js?v=20261104" defer></script>
 <?php });

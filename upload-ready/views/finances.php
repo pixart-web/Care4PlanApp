@@ -4,18 +4,22 @@ $pdo = db();
 $monthStart = date('Y-m-01 00:00:00');
 $monthEnd = date('Y-m-t 23:59:59');
 
-$stmt = $pdo->prepare("SELECT patients.id, patients.name, COALESCE(patients.client_hourly_rate, 0) AS client_hourly_rate,
-        COALESCE(SUM(CASE WHEN services.id IS NOT NULL THEN ((julianday(services.ends_at) - julianday(services.starts_at)) * 24) ELSE 0 END), 0) AS hours,
-        COALESCE(SUM(CASE WHEN services.id IS NOT NULL THEN COALESCE(patients.client_hourly_rate, 0) * ((julianday(services.ends_at) - julianday(services.starts_at)) * 24) ELSE 0 END), 0) AS income,
-        COALESCE(SUM(CASE WHEN services.id IS NOT NULL THEN services.hourly_rate * ((julianday(services.ends_at) - julianday(services.starts_at)) * 24) ELSE 0 END), 0) AS cost
-    FROM patients
-    LEFT JOIN services ON services.patient_id = patients.id
-        AND services.status != 'CANCELLED'
-        AND services.starts_at BETWEEN ? AND ?
-    GROUP BY patients.id
-    ORDER BY patients.name ASC");
-$stmt->execute([$monthStart, $monthEnd]);
-$rows = $stmt->fetchAll();
+$rows=$pdo->query('SELECT id,name,COALESCE(client_hourly_rate,0) AS client_hourly_rate,client_special_rate FROM patients ORDER BY name')->fetchAll();
+$stmt=$pdo->prepare("SELECT * FROM services WHERE status!='CANCELLED' AND starts_at BETWEEN ? AND ?");
+$stmt->execute([$monthStart,$monthEnd]); $services=$stmt->fetchAll(); $byPatient=[];
+foreach ($services as $service) $byPatient[$service['patient_id']][]=$service;
+foreach ($rows as &$row) {
+    $row['hours']=0.0; $row['income']=0.0; $row['cost']=0.0;
+    foreach ($byPatient[$row['id']]??[] as $service) {
+        $service['income_regular']=$service['client_rate_snapshot']??$row['client_hourly_rate'];
+        // Legacy services keep the former single client rate until explicitly edited.
+        $service['income_special']=$service['client_special_snapshot']??$service['income_regular'];
+        $row['hours']+=max(0,(strtotime($service['ends_at'].' UTC')-strtotime($service['starts_at'].' UTC'))/3600);
+        $row['income']+=service_rate_amount($service,'income_regular','income_special');
+        $row['cost']+=service_rate_amount($service);
+    }
+}
+unset($row);
 
 $totalIncome = 0.0;
 $totalCost = 0.0;
@@ -40,7 +44,7 @@ layout('Finanças - Care4All', function () use ($rows, $totalIncome, $totalCost,
     <div class="page-head">
         <div>
             <h1>Finanças</h1>
-            <p class="muted">Receitas, custos e margem por utente no mês atual.</p>
+            <p class="muted">Receitas, custos e margem por cliente no mês atual.</p>
         </div>
     </div>
 
@@ -53,7 +57,7 @@ layout('Finanças - Care4All', function () use ($rows, $totalIncome, $totalCost,
     <section class="card list-panel finance-panel">
         <div class="list-panel-head">
             <div>
-                <h2>Margem por utente</h2>
+                <h2>Margem por cliente</h2>
                 <p class="muted">Compara o valor cobrado ao cliente com o valor pago à cuidadora.</p>
             </div>
         </div>
@@ -61,7 +65,7 @@ layout('Finanças - Care4All', function () use ($rows, $totalIncome, $totalCost,
             <table>
                 <thead>
                 <tr>
-                    <th>Utente</th>
+                    <th>Cliente</th>
                     <th>Horas</th>
                     <th>Valor cliente</th>
                     <th>Valor cuidadora</th>

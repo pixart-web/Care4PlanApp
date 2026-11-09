@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function setupColorButton() {
+  document.querySelectorAll('[name="color_hex"]').forEach(input=>input.addEventListener('input',()=>{const preview=input.closest('form')?.querySelector('[data-color-preview]');if(preview)preview.style.backgroundColor=input.value;}));
   document.querySelectorAll('[data-generate-color]').forEach((button) => {
     button.addEventListener('click', () => {
       const scope = button.closest('form') || document;
@@ -207,10 +208,18 @@ function setupCarerSelectors() {
       if (!form || !selected || !selected.value) return;
 
       form.querySelector('[name="id"]').value = selected.value;
+      const photo=form.querySelector('[data-profile-photo]');
+      const upload=form.querySelector('[name="photo"]');
+      if(upload)upload.value='';
+      if(photo){photo.hidden=selected.dataset.hasPhoto!=='1';if(!photo.hidden)photo.src='index.php?page=photo&kind='+photo.dataset.profilePhoto+'&id='+encodeURIComponent(selected.value);else photo.removeAttribute('src');}
       form.querySelector('[name="name"]').value = selected.dataset.name || '';
       form.querySelector('[name="phone"]').value = selected.dataset.phone || '';
       form.querySelector('[name="email"]').value = selected.dataset.email || '';
       form.querySelector('[name="password"]').value = '';
+      for (const key of ['birthDate','hourlyRateWeekday','hourlyRateSpecial']) {
+        const input = form.querySelector('[name="'+key.replace(/[A-Z]/g, c=>'_'+c.toLowerCase())+'"]');
+        if (input) input.value = selected.dataset[key] || '';
+      }
       const pocketAdjustment = form.querySelector('[name="pocket_adjustment"]');
       if (pocketAdjustment) pocketAdjustment.value = selected.dataset.pocketAdjustment || '0';
 
@@ -234,6 +243,10 @@ function setupPatientSelectors() {
       if (!form || !selected || !selected.value) return;
 
       form.querySelector('[name="id"]').value = selected.value;
+      const photo=form.querySelector('[data-profile-photo]');
+      const upload=form.querySelector('[name="photo"]');
+      if(upload)upload.value='';
+      if(photo){photo.hidden=selected.dataset.hasPhoto!=='1';if(!photo.hidden)photo.src='index.php?page=photo&kind='+photo.dataset.profilePhoto+'&id='+encodeURIComponent(selected.value);else photo.removeAttribute('src');}
       Object.keys(selected.dataset).forEach((key) => {
         const field = key.replace(/[A-Z]/g, (letter) => '_' + letter.toLowerCase());
         const input = form.querySelector(`[name="${field}"]`);
@@ -251,6 +264,10 @@ function setupUserSelectors() {
       if (!form || !selected || !selected.value) return;
 
       form.querySelector('[name="id"]').value = selected.value;
+      const photo=form.querySelector('[data-profile-photo]');
+      const upload=form.querySelector('[name="photo"]');
+      if(upload)upload.value='';
+      if(photo){photo.hidden=selected.dataset.hasPhoto!=='1';if(!photo.hidden)photo.src='index.php?page=photo&kind='+photo.dataset.profilePhoto+'&id='+encodeURIComponent(selected.value);else photo.removeAttribute('src');}
       form.querySelector('[name="name"]').value = selected.dataset.name || '';
       form.querySelector('[name="username"]').value = selected.dataset.username || '';
       form.querySelector('[name="role"]').value = selected.dataset.role || 'CARER';

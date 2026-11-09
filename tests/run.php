@@ -202,6 +202,7 @@ test('skip_conflicts creates only eligible occurrences and replays safely', func
     same($before,$pdo->query('SELECT * FROM services WHERE id='.$service)->fetch());
     $snapshot=snapshot($pdo); check(scheduling_commit($pdo,$data)['replayed']); same($snapshot,snapshot($pdo));
 });
+require __DIR__ . '/planning-features.php';
 require __DIR__ . '/technical.php';
 require __DIR__ . '/http.php';
 require __DIR__ . '/backup.php';

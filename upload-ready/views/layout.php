@@ -7,13 +7,13 @@ unset($_SESSION['flash'], $_SESSION['flash_error']);
 $isCarer = $user && $user['role'] === 'CARER';
 $nav = $isCarer
     ? ['dashboard' => 'Dashboard', 'scales' => 'Escalas', 'pocket' => 'Pocket', 'profile' => 'Perfil', 'reports' => 'Relatórios']
-    : ['dashboard' => 'Dashboard', 'scales' => 'Escalas', 'carers' => 'Cuidadoras', 'patients' => 'Utentes', 'reports' => 'Relatórios', 'settings' => 'Configurações'];
+    : ['dashboard' => 'Dashboard', 'scales' => 'Escalas', 'carers' => 'Cuidadoras', 'patients' => 'Clientes', 'reports' => 'Relatórios', 'settings' => 'Configurações'];
 if ($user && $user['role'] === 'ADMIN') {
     $nav = array_slice($nav, 0, 4, true) + ['users' => 'Utilizadores', 'finances' => 'Finanças'] + array_slice($nav, 4, null, true);
 }
 $bottom = $isCarer
     ? ['dashboard' => 'Início', 'scales' => 'Escalas', 'pocket' => 'Pocket', 'profile' => 'Perfil']
-    : ['dashboard' => 'Início', 'scales' => 'Escalas', 'carers' => 'Equipa', 'patients' => 'Utentes'];
+    : ['dashboard' => 'Início', 'scales' => 'Escalas', 'carers' => 'Equipa', 'patients' => 'Clientes'];
 $navIcons = ['dashboard' => 'layout-dashboard', 'scales' => 'calendar-days', 'pocket' => 'wallet', 'profile' => 'user-round', 'reports' => 'notebook-pen', 'carers' => 'users-round', 'patients' => 'heart-handshake', 'settings' => 'settings-2', 'users' => 'contact-round', 'finances' => 'chart-no-axes-combined'];
 $contextLabel = $nav[$active] ?? $title;
 $careMessages = [
@@ -48,6 +48,7 @@ $careIsDay = time() * 1000 >= $careSun[date('Y-m-d')][0] && time() * 1000 < $car
     <link rel="stylesheet" href="assets/app.css?v=20261103-ui2">
     <link rel="stylesheet" href="assets/atelier.css?v=20261103-ui2">
     <link rel="stylesheet" href="assets/care-ui.css?v=20261103-ui2">
+    <link rel="stylesheet" href="assets/planning-additions.css?v=20261104">
     <script src="assets/vendor/lucide-0.468.0.min.js?v=20261103-ui2" defer></script>
 </head>
 <body class="atelier-app" data-page="<?= e($active) ?>">
@@ -120,7 +121,7 @@ $careIsDay = time() * 1000 >= $careSun[date('Y-m-d')][0] && time() * 1000 < $car
     </nav>
 </div>
 <script type="application/json" id="care-day-data"><?= json_encode(['messages' => $careMessages, 'index' => $messageIndex, 'sun' => $careSun], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="assets/app.js?v=20261103-ui2" defer></script>
+<script src="assets/app.js?v=20261104" defer></script>
 <script src="assets/care-day.js?v=20261103-ui2" defer></script>
 </body>
 </html>

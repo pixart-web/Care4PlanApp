@@ -2,7 +2,7 @@
 require_role(['ADMIN', 'EDITOR']);
 $pdo = db();
 $secure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
-$version = $pdo->query('SELECT version FROM schema_migrations ORDER BY applied_at DESC LIMIT 1')->fetchColumn();
+$version = $pdo->query('SELECT version FROM schema_migrations ORDER BY applied_at DESC, version DESC LIMIT 1')->fetchColumn();
 layout('Configurações - Care4All', function () use ($secure, $version) { ?>
     <div class="page-head"><div><h1>Configurações</h1><p class="muted">Care4All V2</p></div></div>
     <section class="card list-panel settings-panel">
