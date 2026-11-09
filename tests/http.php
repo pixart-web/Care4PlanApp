@@ -124,7 +124,7 @@ try {
         $pdo->exec("CREATE TRIGGER fixture_carer_failure BEFORE INSERT ON users WHEN NEW.username='Rollback Carer' BEGIN SELECT RAISE(ABORT,'fixture failure'); END");
         try {
             $before=snapshot($pdo);
-            same(500,http_request('/index.php?page=carers',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'save_carer','name'=>'Rollback Carer','phone'=>'000000000','email'=>'rollback@example.invalid','color_hex'=>'#654321','password'=>$password])['status']);
+            same(500,http_request('/index.php?page=carers',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'save_carer','birth_date'=>'1980-01-02','name'=>'Rollback Carer','phone'=>'000000000','email'=>'rollback@example.invalid','color_hex'=>'#654321','password'=>$password])['status']);
             same($before,snapshot($pdo));
         } finally { $pdo->exec('DROP TRIGGER fixture_carer_failure'); }
     });

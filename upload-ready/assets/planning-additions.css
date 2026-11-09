@@ -1,0 +1,16 @@
+/* Only new profile controls and the requested carer-calendar overlap correction. */
+.profile-photo { object-fit:cover; border-radius:50%; vertical-align:middle; }
+[data-extra-times] .form-grid { margin-bottom:12px; }
+#copy-month-modal [data-month-preview] { max-height:45vh; overflow:auto; }
+#carer-calendar table { min-width:0; border-spacing:0; }
+#carer-calendar th, #carer-calendar td { padding:0; vertical-align:top; font-size:12px; }
+#carer-calendar .fc-col-header-cell { text-align:center; }
+#carer-calendar .fc-timegrid-slot-label { vertical-align:middle; }
+#carer-calendar .fc-timegrid-slot-label-cushion { padding:0 6px; }
+#carer-calendar .fc-timegrid-event { min-height:24px; overflow:hidden; }
+#carer-calendar .fc-event-title-custom { white-space:normal; overflow:hidden; overflow-wrap:anywhere; font-size:11px; line-height:1.25; padding:2px 4px; }
+#carer-calendar .fc-timegrid-slot { height:36px; }
+#carer-calendar .fc-daygrid-event { white-space:normal; }
+#carer-calendar .fc-toolbar { flex-wrap:wrap; gap:8px; }
+#carer-calendar .fc-toolbar-title { font-size:18px; }
+@media(max-width:699px) { #carer-calendar .fc-toolbar-chunk { max-width:100%; } #carer-calendar .fc-button { padding:6px; font-size:12px; } }

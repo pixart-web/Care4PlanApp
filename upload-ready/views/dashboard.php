@@ -79,6 +79,7 @@ $newPatients = $countMovement('PATIENT', 'IN');
 $leftPatients = $countMovement('PATIENT', 'OUT');
 
 layout('Dashboard - Care4All', function () use ($carersCount, $patientsCount, $newReports, $newCarers, $leftCarers, $newPatients, $leftPatients, $day, $selectedDate, $selectedMunicipality, $municipalities, $summary, $totals, $conflicts, $pending, $scaleUrl) { ?>
+    <?php $birthdays=profile_birthdays(db()); if ($birthdays): ?><section class="alert" role="status"><strong>Aniversários de hoje</strong><?php foreach ($birthdays as $birthday): ?><div><?= e($birthday['name']) ?> · <?= e($birthday['kind']) ?></div><?php endforeach; ?></section><?php endif; ?>
     <div class="page-head">
         <div>
             <h1>Dashboard</h1>
@@ -113,9 +114,9 @@ layout('Dashboard - Care4All', function () use ($carersCount, $patientsCount, $n
         <div class="section-head"><h2 id="conflicts-title">Conflitos e pendências</h2><span class="badge <?= $conflicts ? 'badge-alert' : 'badge-ok' ?>"><?= count($conflicts) ?> conflitos</span></div>
         <?php if (! $conflicts && ! $pending): ?><div class="empty-state"><strong>Sem conflitos ou pendências detetados.</strong><p class="muted">Serviços não cancelados no dia selecionado.</p></div><?php endif; ?>
         <?php foreach ($conflicts as [$first, $second]): ?>
-            <article class="conflict-row"><div><strong><?= e($first['carer_name'] ?? 'Cuidadora sem atribuição') ?></strong><p>Sobreposição de horários</p><?php foreach ([$first, $second] as $service): ?><p class="muted"><?= date('d/m H:i', strtotime($service['starts_at'])) ?> - <?= date('d/m H:i', strtotime($service['ends_at'])) ?> · <?= e($service['patient_name'] ?? 'Sem utente') ?> · <?= e($service['municipality'] ?: 'Sem concelho') ?></p><?php endforeach; ?></div><a class="btn btn-secondary" href="<?= e($scaleUrl('', '', (int) $first['carer_id'])) ?>">Rever escalas</a></article>
+            <article class="conflict-row"><div><strong><?= e($first['carer_name'] ?? 'Cuidadora sem atribuição') ?></strong><p>Sobreposição de horários</p><?php foreach ([$first, $second] as $service): ?><p class="muted"><?= date('d/m H:i', strtotime($service['starts_at'])) ?> - <?= date('d/m H:i', strtotime($service['ends_at'])) ?> · <?= e($service['patient_name'] ?? 'Sem cliente') ?> · <?= e($service['municipality'] ?: 'Sem concelho') ?></p><?php endforeach; ?></div><a class="btn btn-secondary" href="<?= e($scaleUrl('', '', (int) $first['carer_id'])) ?>">Rever escalas</a></article>
         <?php endforeach; ?>
-        <?php foreach ($pending as $service): ?><article class="conflict-row"><div><strong><?= e($service['patient_name'] ?? 'Sem utente') ?></strong><p class="muted"><?= e($service['carer_name'] ?? 'Sem cuidadora') ?> · <?= empty(trim((string) $service['municipality'])) ? 'Concelho por definir' : 'Atribuição incompleta' ?></p></div><a class="btn btn-secondary" href="<?= e($scaleUrl(empty(trim((string) $service['municipality'])) ? '__unassigned' : $service['municipality'], '', (int) $service['carer_id'])) ?>">Rever escala</a></article><?php endforeach; ?>
+        <?php foreach ($pending as $service): ?><article class="conflict-row"><div><strong><?= e($service['patient_name'] ?? 'Sem cliente') ?></strong><p class="muted"><?= e($service['carer_name'] ?? 'Sem cuidadora') ?> · <?= empty(trim((string) $service['municipality'])) ? 'Concelho por definir' : 'Atribuição incompleta' ?></p></div><a class="btn btn-secondary" href="<?= e($scaleUrl(empty(trim((string) $service['municipality'])) ? '__unassigned' : $service['municipality'], '', (int) $service['carer_id'])) ?>">Rever escala</a></article><?php endforeach; ?>
     </section>
     <?php if (! empty($newReports)): ?>
         <section class="notification-panel">
@@ -131,7 +132,7 @@ layout('Dashboard - Care4All', function () use ($carersCount, $patientsCount, $n
             <p class="metric-delta"><span class="delta-in">+<?= $newCarers ?> novas</span> · <span class="delta-out">-<?= $leftCarers ?> saíram</span> este mês</p>
         </div>
         <div class="card">
-            <p class="muted">Utentes</p>
+            <p class="muted">Clientes</p>
             <div class="stat-num"><?= $patientsCount ?></div>
             <p class="metric-delta"><span class="delta-in">+<?= $newPatients ?> novos</span> · <span class="delta-out">-<?= $leftPatients ?> saíram</span> este mês</p>
         </div>

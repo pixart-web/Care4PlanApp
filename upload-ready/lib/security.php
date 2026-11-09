@@ -139,7 +139,8 @@ function validate_action(PDO $pdo, string $action, array $user): void
             reject_action('Selecione uma cor válida.', $page);
         }
         if ($action === 'save_carer') {
-            $stmt = $pdo->prepare('SELECT 1 FROM carers WHERE id != ? AND (color_hex = ? OR (email != ? AND lower(email) = lower(?)))');
+            $_POST['color_hex']=strtolower($_POST['color_hex']);
+            $stmt = $pdo->prepare('SELECT 1 FROM carers WHERE id != ? AND (lower(color_hex) = lower(?) OR (email != ? AND lower(email) = lower(?)))');
             $stmt->execute([(int) ($_POST['id'] ?? 0), $_POST['color_hex'], '', trim((string) ($_POST['email'] ?? ''))]);
             if ($stmt->fetchColumn()) reject_action('A cor ou o email já estão associados a outra cuidadora.', 'carers');
             if (isset($_POST['pocket_adjustment']) && (!is_numeric($_POST['pocket_adjustment']) || !is_finite((float) $_POST['pocket_adjustment']))) reject_action('Introduza um ajuste Pocket válido.', 'carers');

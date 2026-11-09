@@ -54,7 +54,7 @@ layout('Cuidadoras - Care4All', function () use ($carers) { ?>
                     <tbody>
                     <?php foreach ($carers as $carer): ?>
                         <tr>
-                            <td><strong><?= e($carer['name']) ?></strong></td>
+                            <td><strong><?php profile_photo_thumb('carer',(int)$carer['id']); ?><?= e($carer['name']) ?></strong></td>
                             <td><?= e($carer['phone']) ?></td>
                             <td><?= e($carer['email']) ?: '-' ?></td>
                             <td><span class="badge"><?= carer_status((int) $carer['id']) ?></span></td>
@@ -69,7 +69,7 @@ layout('Cuidadoras - Care4All', function () use ($carers) { ?>
             <div class="mobile-cards">
                 <?php foreach ($carers as $carer): ?>
                     <article class="mobile-item">
-                        <strong><?= e($carer['name']) ?></strong>
+                        <strong><?php profile_photo_thumb('carer',(int)$carer['id']); ?><?= e($carer['name']) ?></strong>
                         <div class="mobile-line"><span>Telefone</span><span><?= e($carer['phone']) ?></span></div>
                         <div class="mobile-line"><span>Email</span><span><?= e($carer['email']) ?: '-' ?></span></div>
                         <div class="mobile-line"><span>Estado</span><span><?= carer_status((int) $carer['id']) ?></span></div>
@@ -90,15 +90,19 @@ layout('Cuidadoras - Care4All', function () use ($carers) { ?>
                 </div>
                 <button class="modal-close" type="button" data-close-modal aria-label="Fechar">x</button>
             </div>
-            <form method="post" class="modal-body">
+            <form method="post" enctype="multipart/form-data" class="modal-body">
                 <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
                 <input type="hidden" name="action" value="save_carer">
                 <input type="hidden" name="id" value="">
+                <?php profile_photo_field('carer'); ?>
+                <label class="field"><span class="label">Data de nascimento</span><input class="input" name="birth_date" type="date" max="<?= date('Y-m-d') ?>" required></label>
+                <label class="field"><span class="label">Pocket/hora — dias úteis</span><input class="input" name="hourly_rate_weekday" type="number" min="0" max="10000" step="0.01"></label>
+                <label class="field"><span class="label">Pocket/hora — fins de semana e feriados</span><input class="input" name="hourly_rate_special" type="number" min="0" max="10000" step="0.01"><span class="subtitle">Em branco: aplica-se o valor dos dias úteis.</span></label>
                 <label class="field"><span class="label">Nome</span><input class="input" name="name" required></label>
                 <label class="field"><span class="label">Telefone</span><input class="input" name="phone" required></label>
                 <label class="field"><span class="label">Email</span><input class="input" name="email" type="email" required></label>
                 <label class="field"><span class="label">Palavra-passe</span><input class="input" name="password" type="password" required></label>
-                <input type="hidden" name="color_hex" value="">
+                <label class="field"><span class="label">Cor da cuidadora</span><input class="input" type="color" name="color_hex" value="#22776e" required></label>
                 <input type="hidden" name="pocket_adjustment" value="0">
                 <div class="btn-row color-row">
                     <span class="swatch" data-color-preview style="background:#ffffff" aria-label="Cor da cuidadora"></span>
@@ -132,7 +136,7 @@ layout('Cuidadoras - Care4All', function () use ($carers) { ?>
                         <?php foreach ($carers as $carer): ?>
                             <option
                                 value="<?= $carer['id'] ?>"
-                                data-name="<?= e($carer['name']) ?>"
+                                data-name="<?= e($carer['name']) ?>" data-has-photo="<?= has_profile_photo('carer',(int)$carer['id'])?'1':'0' ?>" data-birth-date="<?= e($carer['birth_date'] ?? '') ?>" data-hourly-rate-weekday="<?= e((string)($carer['hourly_rate_weekday'] ?? '')) ?>" data-hourly-rate-special="<?= e((string)($carer['hourly_rate_special'] ?? '')) ?>"
                                 data-phone="<?= e($carer['phone']) ?>"
                                 data-email="<?= e($carer['email']) ?>"
                                 data-color="<?= e($carer['color_hex']) ?>"
@@ -141,6 +145,10 @@ layout('Cuidadoras - Care4All', function () use ($carers) { ?>
                         <?php endforeach; ?>
                     </select>
                 </label>
+                <?php profile_photo_field('carer'); ?>
+                <label class="field"><span class="label">Data de nascimento</span><input class="input" name="birth_date" type="date" max="<?= date('Y-m-d') ?>" required></label>
+                <label class="field"><span class="label">Pocket/hora — dias úteis</span><input class="input" name="hourly_rate_weekday" type="number" min="0" max="10000" step="0.01"></label>
+                <label class="field"><span class="label">Pocket/hora — fins de semana e feriados</span><input class="input" name="hourly_rate_special" type="number" min="0" max="10000" step="0.01"><span class="subtitle">Em branco: aplica-se o valor dos dias úteis.</span></label>
                 <label class="field"><span class="label">Nome</span><input class="input" name="name" required></label>
                 <label class="field"><span class="label">Telefone</span><input class="input" name="phone" required></label>
                 <label class="field"><span class="label">Email</span><input class="input" name="email" type="email" required></label>
@@ -149,7 +157,7 @@ layout('Cuidadoras - Care4All', function () use ($carers) { ?>
                     <input class="input" name="password" type="password">
                     <span class="subtitle">Deixe em branco para manter a palavra-passe atual.</span>
                 </label>
-                <input type="hidden" name="color_hex" value="">
+                <label class="field"><span class="label">Cor da cuidadora</span><input class="input" type="color" name="color_hex" value="#22776e" required></label>
                 <label class="field"><span class="label">Ajuste manual do pocket</span><input class="input" name="pocket_adjustment" type="number" step="0.01" value="0"><span class="subtitle">Valor somado ao pocket mensal desta cuidadora.</span></label>
                 <div class="btn-row color-row">
                     <span class="swatch" data-color-preview style="background:#ffffff" aria-label="Cor da cuidadora"></span>

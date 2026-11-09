@@ -27,7 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rate = Number(field('hourly_rate').value);
     const start = new Date(field('starts_at').value);
     const end = new Date(field('ends_at').value);
-    document.getElementById('service-pocket-preview').textContent = money(Math.max(0, (end - start) / 3600000) * rate);
+    document.getElementById('service-pocket-preview').textContent = money(window.carePocketEstimate ? window.carePocketEstimate(field('starts_at').value, field('ends_at').value, rate, field('hourly_rate_special').value) : Math.max(0, (end-start)/3600000)*rate);
     for (const [name, selector] of [['patient_id', '[data-preview-patient]'], ['carer_id', '[data-preview-carer]'], ['municipality', '[data-preview-municipality]']]) {
       form.querySelector(selector).textContent = field(name).value ? field(name).selectedOptions[0].textContent : 'Por selecionar';
     }
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function selectService(button) {
     clearService();
     const data = button.dataset;
-    for (const [name, value] of Object.entries({ id: data.serviceId, patient_id: data.patientId, carer_id: data.carerId, starts_at: data.startsAt, ends_at: data.endsAt, hourly_rate: data.hourlyRate, observations: data.observations, municipality: data.municipality })) field(name).value = value || '';
+    for (const [name, value] of Object.entries({ id: data.serviceId, patient_id: data.patientId, carer_id: data.carerId, starts_at: data.startsAt, ends_at: data.endsAt, hourly_rate: data.hourlyRate, observations: data.observations, municipality: data.municipality, hourly_rate_special: data.hourlyRateSpecial })) field(name).value = value ?? '';
     // Preserve legacy decimal rates that are not present in the integer selector.
     if (!field('hourly_rate').value && data.hourlyRate) {
       field('hourly_rate').add(new Option(money(data.hourlyRate) + '/h', data.hourlyRate));
@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('service-actions').hidden = false;
     const date = new Date(data.startsAt);
     const duration = Math.max(0, (new Date(data.endsAt) - date) / 3600000);
-    for (const [id, value] of Object.entries({ 'detail-patient': data.patientName, 'detail-carer': data.carerName, 'detail-date': date.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' }), 'detail-time': data.startsAt.slice(11, 16) + ' – ' + data.endsAt.slice(11, 16), 'detail-municipality': data.municipality || 'Sem concelho', 'detail-rate': money(data.hourlyRate) + '/h', 'detail-pocket': money(duration * Number(data.hourlyRate)), 'detail-observations': data.observations || 'Sem observações.' })) document.getElementById(id).textContent = value;
+    for (const [id, value] of Object.entries({ 'detail-patient': data.patientName, 'detail-carer': data.carerName, 'detail-date': date.toLocaleDateString('pt-PT', { day: 'numeric', month: 'long', year: 'numeric' }), 'detail-time': data.startsAt.slice(11, 16) + ' – ' + data.endsAt.slice(11, 16), 'detail-municipality': data.municipality || 'Sem concelho', 'detail-rate': money(data.hourlyRate) + (data.hourlyRateSpecial !== '' && data.hourlyRateSpecial != null ? ' / ' + money(data.hourlyRateSpecial) : '') + '/h', 'detail-pocket': money(data.pocketValue ?? duration * Number(data.hourlyRate)), 'detail-observations': data.observations || 'Sem observações.' })) document.getElementById(id).textContent = value;
     const status = document.getElementById('detail-status');
     status.textContent = labels[data.status] || data.status;
     status.className = 'detail-status status-' + data.status.toLowerCase();

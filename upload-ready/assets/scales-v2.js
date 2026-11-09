@@ -57,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let generation = 0;
   let approved = '';
   let submitting = false;
+  const needsPreview = () => mode.value !== 'none' || field('edit_series')?.value === '1' || field('extra_times')?.value === '1';
   const snapshot = () => new URLSearchParams(new FormData(form)).toString();
   const formatDate = (value) => new Date(value.replace(' ', 'T')).toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: '2-digit' });
 
@@ -74,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     field('recurrence_until').disabled = mode.value !== 'weekdays' || editing;
     field('recurrence_until').closest('label').hidden = mode.value === 'week_only';
-    submit.disabled = mode.value !== 'none' && approved !== snapshot();
+    submit.disabled = needsPreview() && approved !== snapshot();
   }
 
   function invalidate() {
@@ -170,8 +171,10 @@ document.addEventListener('DOMContentLoaded', () => {
         list.append(item);
       }
       preview.append(list);
+      const total = (result.occurrences || []).reduce((sum, item) => sum + Number(item.pocket_value || 0), 0);
+      document.getElementById('service-pocket-preview').textContent = total.toLocaleString('pt-PT', {style:'currency',currency:'EUR'});
       token.value = result.preview_token || '';
-      approved = result.valid === true && (mode.value === 'none' || token.value) ? snapshot() : '';
+      approved = result.valid === true && (!needsPreview() || token.value) ? snapshot() : '';
       updateMode();
     } catch (error) {
       if (version === generation) preview.textContent = error.message;
@@ -198,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('open-new-service').addEventListener('click', resetRecurrence);
   document.getElementById('clear-service').addEventListener('click', resetRecurrence);
   form.addEventListener('submit', (event) => {
-    if (submitting || (mode.value !== 'none' && approved !== snapshot())) {
+    if (submitting || (needsPreview() && approved !== snapshot())) {
       event.preventDefault();
       if (!submitting) preview.textContent = 'Pr\u00e9-visualize as ocorr\u00eancias antes de guardar.';
       return;

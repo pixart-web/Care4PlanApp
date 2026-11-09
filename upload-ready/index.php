@@ -15,6 +15,8 @@ if ($action) {
     handle_action($action);
 }
 
+if ($page === 'photo') profile_photo_endpoint();
+
 if ($page === 'api.events') {
     events_api();
 }
@@ -73,6 +75,15 @@ function dispatch_action(PDO $pdo, string $action): void
     // Keep administrator validation and its write in the same SQLite snapshot.
     if (in_array($action, ['save_user', 'delete_user'], true)) $pdo->beginTransaction();
     validate_action($pdo, $action, $user);
+    $profileExtra = []; $profilePhoto = null;
+    if (in_array($action, ['save_patient','save_carer','save_profile'], true)) {
+        try {
+            $profileExtra = profile_extra_values($action, $_POST);
+            $profilePhoto = profile_photo_upload($_FILES['photo'] ?? []);
+        } catch (InvalidArgumentException $error) {
+            reject_action($error->getMessage(), ['save_patient'=>'patients','save_carer'=>'carers','save_profile'=>'profile'][$action]);
+        }
+    }
 
     if ($action === 'save_carer') {
         require_role($operational);
@@ -141,6 +152,8 @@ function dispatch_action(PDO $pdo, string $action): void
             $pdo->prepare('UPDATE carers SET user_id = ? WHERE id = ?')->execute([$userId, $carerId]);
         }
 
+        profile_extra_save($pdo, 'carers', $id ?: $carerId, $profileExtra);
+        profile_photo_save($pdo, 'carer', $id ?: $carerId, $profilePhoto);
         audit_event($pdo, $action, $id ?: $carerId);
         $pdo->commit();
         $_SESSION['flash'] = 'Cuidadora guardada.';
@@ -204,6 +217,8 @@ function dispatch_action(PDO $pdo, string $action): void
             $id = (int) $pdo->lastInsertId();
             record_entity_movement($pdo, 'PATIENT', $data['name'], 'IN');
         }
+        profile_extra_save($pdo, 'patients', $id, $profileExtra);
+        profile_photo_save($pdo, 'patient', $id, $profilePhoto);
         audit_event($pdo, $action, $id);
         $pdo->commit();
         $_SESSION['flash'] = 'Cliente guardado.';
@@ -215,7 +230,7 @@ function dispatch_action(PDO $pdo, string $action): void
         $pdo->beginTransaction();
         $stmt = $pdo->prepare('SELECT name FROM patients WHERE id = ?');
         $stmt->execute([$id]);
-        $patientName = (string) ($stmt->fetchColumn() ?: 'Utente');
+        $patientName = (string) ($stmt->fetchColumn() ?: 'Cliente');
         $pdo->prepare('DELETE FROM patients WHERE id = ?')->execute([$id]);
         record_entity_movement($pdo, 'PATIENT', $patientName, 'OUT');
         audit_event($pdo, $action, $id);
@@ -242,7 +257,7 @@ function dispatch_action(PDO $pdo, string $action): void
         require_role($operational);
         try {
             $plan = scheduling_plan($pdo, $_POST);
-            if (($_POST['recurrence_mode'] ?? 'none') !== 'none') {
+            if (($_POST['recurrence_mode'] ?? 'none') !== 'none' || ($_POST['edit_series'] ?? '') === '1' || ($_POST['extra_times'] ?? '') === '1' || ($_POST['planning_mode'] ?? '') === 'copy_month') {
                 $preview = $_SESSION['service_previews'][$_POST['preview_token'] ?? ''] ?? null;
                 if (!$preview || $preview['expires'] < time() || !hash_equals($preview['hash'], hash('sha256', json_encode($plan, JSON_THROW_ON_ERROR)))) {
                     reject_action('Pré-visualize as escalas antes de guardar. A seleção foi alterada ou expirou.', 'scales');
@@ -304,6 +319,8 @@ function dispatch_action(PDO $pdo, string $action): void
         $pdo->beginTransaction();
         $pdo->prepare('UPDATE carers SET age = ?, phone = ?, email = ?, updated_at = ? WHERE id = ?')
             ->execute([$_POST['age'] !== '' ? (int) $_POST['age'] : null, trim($_POST['phone']), trim($_POST['email']), now(), $user['carer_id']]);
+        profile_extra_save($pdo, 'carers', (int) $user['carer_id'], $profileExtra);
+        profile_photo_save($pdo, 'carer', (int) $user['carer_id'], $profilePhoto);
         audit_event($pdo, $action, (int) $user['carer_id']);
         $pdo->commit();
         $_SESSION['flash'] = 'Perfil atualizado.';
@@ -326,7 +343,7 @@ function dispatch_action(PDO $pdo, string $action): void
             $carerId = (int) $user['carer_id'];
             $patientId = (int) ($_POST['patient_id'] ?? 0);
             if ($patientId <= 0 || !may_report_patient($pdo, $user, $patientId)) {
-                $_SESSION['flash_error'] = 'Selecione o utente associado ao relatório.';
+                $_SESSION['flash_error'] = 'Selecione o cliente associado ao relatório.';
                 redirect('reports');
             }
             $pdo->beginTransaction();

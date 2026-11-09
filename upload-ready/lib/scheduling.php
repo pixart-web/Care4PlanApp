@@ -48,11 +48,11 @@ function scheduling_date(string $value): DateTimeImmutable
     return $date;
 }
 
-function scheduling_plan(PDO $pdo, array $data): array
+function scheduling_base_plan(PDO $pdo, array $data): array
 {
     foreach (['patient_id', 'carer_id'] as $field) {
         if (! filter_var($data[$field] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]])) {
-            throw new InvalidArgumentException('Selecione utente e cuidadora.');
+            throw new InvalidArgumentException('Selecione cliente e cuidadora.');
         }
     }
     $rawId = $data['id'] ?? 0;
@@ -65,14 +65,14 @@ function scheduling_plan(PDO $pdo, array $data): array
         throw new InvalidArgumentException('Selecione o concelho.');
     }
     $rate = filter_var($data['hourly_rate'] ?? null, FILTER_VALIDATE_FLOAT);
-    if ($rate === false || ! is_finite($rate) || $rate < 5 || $rate > 15) {
-        throw new InvalidArgumentException('Pocket deve estar entre 5 e 15 EUR/hora.');
+    if ($rate === false || ! is_finite($rate) || $rate < 0 || $rate > 10000) {
+        throw new InvalidArgumentException('Introduza um valor Pocket válido entre 0 e 10000 EUR/hora.');
     }
     foreach (['patients' => 'patient_id', 'carers' => 'carer_id'] as $table => $field) {
         $stmt = $pdo->prepare("SELECT id FROM $table WHERE id = ?");
         $stmt->execute([(int) $data[$field]]);
         if (! $stmt->fetchColumn()) {
-            throw new InvalidArgumentException('Utente ou cuidadora inexistente.');
+            throw new InvalidArgumentException('Cliente ou cuidadora inexistente.');
         }
     }
     if ($id) {
@@ -159,30 +159,26 @@ function scheduling_check(PDO $pdo, array $plan): array
 {
     $conflicts = [];
     $accepted = [];
-    // Same-start cancelled rows also conflict with the existing SQLite UNIQUE constraint.
-    $query = $pdo->prepare("SELECT id, starts_at, ends_at, status FROM services WHERE carer_id = ? AND id != ? AND ((status != 'CANCELLED' AND starts_at < ? AND ends_at > ?) OR starts_at = ?) ORDER BY starts_at");
+    $ignoreIds = array_values(array_unique(array_filter(array_map(fn($entry)=>(int)($entry['id']??$plan['id']),$plan['occurrences']))));
+    $ignoreSql = $ignoreIds ? ' AND id NOT IN ('.implode(',',array_fill(0,count($ignoreIds),'?')).')' : '';
+    $query = $pdo->prepare("SELECT id, starts_at, ends_at, status FROM services WHERE carer_id = ?".$ignoreSql." AND ((status != 'CANCELLED' AND starts_at < ? AND ends_at > ?) OR starts_at = ?) ORDER BY starts_at");
     foreach ($plan['occurrences'] as $index => $occurrence) {
-        $before = count($conflicts);
-        $query->execute([$plan['carer_id'], $plan['id'], $occurrence['ends_at'], $occurrence['starts_at'], $occurrence['starts_at']]);
+        $item=array_merge($plan,$occurrence);
+        $before=count($conflicts);
+        $query->execute([$item['carer_id'],...$ignoreIds,$item['ends_at'],$item['starts_at'],$item['starts_at']]);
         foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $existing) {
-            $conflicts[] = ['occurrence' => $index, 'starts_at' => $occurrence['starts_at'], 'service_id' => (int) $existing['id'],
-                'existing_starts_at' => $existing['starts_at'], 'existing_ends_at' => $existing['ends_at'], 'existing_status' => $existing['status'],
-                'type' => $existing['status'] === 'CANCELLED' ? 'cancelled_duplicate' : ($existing['starts_at'] === $occurrence['starts_at'] ? 'duplicate' : 'overlap')];
+            $conflicts[]=['occurrence'=>$index,'starts_at'=>$item['starts_at'],'service_id'=>(int)$existing['id'],'existing_starts_at'=>$existing['starts_at'],'existing_ends_at'=>$existing['ends_at'],'existing_status'=>$existing['status'],'type'=>$existing['status']==='CANCELLED'?'cancelled_duplicate':'overlap'];
         }
         foreach ($accepted as $previous) {
-            if ($previous['starts_at'] < $occurrence['ends_at'] && $previous['ends_at'] > $occurrence['starts_at']) {
-                $conflicts[] = ['occurrence' => $index, 'starts_at' => $occurrence['starts_at'], 'service_id' => null, 'type' => 'batch_overlap'];
-            }
+            if ((int)$previous['carer_id']===(int)$item['carer_id'] && $previous['starts_at']<$item['ends_at'] && $previous['ends_at']>$item['starts_at']) $conflicts[]=['occurrence'=>$index,'starts_at'=>$item['starts_at'],'service_id'=>null,'type'=>'batch_overlap'];
         }
-        if (count($conflicts) === $before || ! $plan['skip_conflicts']) {
-            $accepted[] = $occurrence;
-        }
+        if (count($conflicts)===$before || !$plan['skip_conflicts']) $accepted[]=$item;
     }
     $skipped = count(array_unique(array_column($conflicts, 'occurrence')));
     $eligible = count($plan['occurrences']) - $skipped;
-    return ['valid' => (! $conflicts || $plan['skip_conflicts']) && $eligible > 0, 'count' => count($plan['occurrences']),
+    return ['valid' => (! $conflicts || $plan['skip_conflicts']) && $eligible > 0 && (empty($plan['unmatched']) || !empty($plan['allow_unmatched'])), 'count' => count($plan['occurrences']),
         'created_count' => 0, 'eligible_count' => $eligible, 'skipped_count' => $plan['skip_conflicts'] ? $skipped : 0,
-        'occurrences' => $plan['occurrences'], 'conflicts' => $conflicts, 'errors' => []];
+        'occurrences' => array_map(function ($entry) use ($plan) { $item=array_merge($plan,$entry); $entry['pocket_value']=round(service_rate_amount($item),2); return $entry; },$plan['occurrences']), 'conflicts' => $conflicts, 'errors' => [], 'unmatched' => $plan['unmatched'] ?? []];
 }
 
 /** Caller owns authentication/authorization and CSRF. Preview never writes. */
@@ -233,13 +229,15 @@ function scheduling_commit(PDO $pdo, array $data): array
             if ($plan['skip_conflicts'] && in_array($index, $conflictedIndexes, true)) {
                 continue;
             }
-            $values = [$plan['patient_id'], $plan['carer_id'], $occurrence['starts_at'], $occurrence['ends_at'], $plan['hourly_rate'], $plan['observations'], $plan['municipality'], $timestamp];
-            if ($plan['id']) {
-                $pdo->prepare('UPDATE services SET patient_id = ?, carer_id = ?, starts_at = ?, ends_at = ?, hourly_rate = ?, observations = ?, municipality = ?, updated_at = ? WHERE id = ?')->execute([...$values, $plan['id']]);
-                $ids[] = $plan['id'];
+            $item=array_merge($plan,$occurrence);
+            $values=[$item['patient_id'],$item['carer_id'],$item['starts_at'],$item['ends_at'],$item['hourly_rate'],$item['observations'],$item['municipality'],$timestamp];
+            if ($item['id']) {
+                $pdo->prepare('UPDATE services SET patient_id=?,carer_id=?,starts_at=?,ends_at=?,hourly_rate=?,observations=?,municipality=?,updated_at=?,hourly_rate_special=?,client_rate_snapshot=?,client_special_snapshot=? WHERE id=?')->execute([...$values,$item['hourly_rate_special']??null,$item['client_rate_snapshot']??null,$item['client_special_snapshot']??null,$item['id']]);
+                $ids[]=(int)$item['id'];
             } else {
-                $pdo->prepare("INSERT INTO services (patient_id, carer_id, starts_at, ends_at, hourly_rate, observations, municipality, updated_at, created_at, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'SCHEDULED')")->execute([...$values, $timestamp]);
-                $ids[] = (int) $pdo->lastInsertId();
+                $series=hash('sha256',$key.'|'.($item['family']??'slot-1'));
+                $pdo->prepare("INSERT INTO services(patient_id,carer_id,starts_at,ends_at,hourly_rate,observations,municipality,updated_at,created_at,status,hourly_rate_special,client_rate_snapshot,client_special_snapshot,series_key) VALUES(?,?,?,?,?,?,?,?,?,'SCHEDULED',?,?,?,?)")->execute([...$values,$timestamp,$item['hourly_rate_special']??null,$item['client_rate_snapshot']??null,$item['client_special_snapshot']??null,$series]);
+                $ids[]=(int)$pdo->lastInsertId();
             }
         }
         $result['service_ids'] = $ids;

@@ -10,6 +10,9 @@ session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTP
 session_start();
 require_once __DIR__ . '/lib/security.php';
 require_once __DIR__ . '/lib/scheduling.php';
+require_once __DIR__ . '/lib/profiles.php';
+require_once __DIR__ . '/lib/rates.php';
+require_once __DIR__ . '/lib/planning.php';
 set_exception_handler('application_exception');
 if (PHP_SAPI !== 'cli') {
     header('X-Content-Type-Options: nosniff');
@@ -175,6 +178,7 @@ function migrate(PDO $pdo): void
     ensure_column($pdo, 'report_replies', 'read_by_carer_at', 'TEXT NULL');
     migrate_v2($pdo);
     scheduling_migrate($pdo);
+    profiles_migrate($pdo);
 }
 
 
@@ -364,9 +368,9 @@ function pocket_for_carer(int $carerId): float
     $start = date('Y-m-01 00:00:00');
     $end = date('Y-m-t 23:59:59');
     $availableAt = date('Y-m-d H:i:s', strtotime('-15 minutes'));
-    $stmt = db()->prepare("SELECT COALESCE(SUM(hourly_rate * ((julianday(ends_at) - julianday(starts_at)) * 24)), 0) FROM services WHERE carer_id = ? AND status != 'CANCELLED' AND starts_at BETWEEN ? AND ? AND ends_at <= ?");
+    $stmt = db()->prepare("SELECT * FROM services WHERE carer_id = ? AND status != 'CANCELLED' AND starts_at BETWEEN ? AND ? AND ends_at <= ?");
     $stmt->execute([$carerId, $start, $end, $availableAt]);
-    $servicesTotal = (float) $stmt->fetchColumn();
+    $servicesTotal = array_sum(array_map(fn($service)=>service_rate_amount($service),$stmt->fetchAll()));
 
     $adjustment = db()->prepare('SELECT COALESCE(pocket_adjustment, 0) FROM carers WHERE id = ?');
     $adjustment->execute([$carerId]);
@@ -376,8 +380,7 @@ function pocket_for_carer(int $carerId): float
 
 function service_pocket_value(array $service): float
 {
-    $hours = max(0, (strtotime($service['ends_at']) - strtotime($service['starts_at'])) / 3600);
-    return round(((float) $service['hourly_rate']) * $hours, 2);
+    return round(service_rate_amount($service, 'hourly_rate', 'hourly_rate_special', true), 2);
 }
 
 function has_overlap(int $carerId, string $start, string $end, ?int $ignoreId = null): bool

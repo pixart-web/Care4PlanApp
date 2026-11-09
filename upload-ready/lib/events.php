@@ -21,7 +21,7 @@ function events_api(): never
         exit;
     }
     $params = [];
-    $sql = "SELECT services.id, services.patient_id, services.carer_id, services.starts_at, services.ends_at, services.hourly_rate, services.status, services.observations, services.municipality, patients.name AS patient_name, patients.address, carers.name AS carer_name, carers.color_hex
+    $sql = "SELECT services.id, services.patient_id, services.carer_id, services.starts_at, services.ends_at, services.hourly_rate, services.hourly_rate_special, services.status, services.observations, services.municipality, patients.name AS patient_name, patients.address, carers.name AS carer_name, carers.color_hex
             FROM services
             JOIN patients ON patients.id = services.patient_id
             JOIN carers ON carers.id = services.carer_id
