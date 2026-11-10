@@ -1,6 +1,6 @@
 # Care4All
 
-A aplicação atual Care4All V2 está em `upload-ready/`: PHP 8.1+ e SQLite,
+A aplicação atual Care4All V2 está em `upload-ready/`: PHP 8.3+ e SQLite,
 compatível com cPanel, sem Composer ou npm em produção.
 
 Consulte `AUDIT-CARE4ALL-V2.md`, `DEPLOY-CARE4ALL-V2.md` e `tests/README.md`
@@ -17,7 +17,7 @@ Use essa pasta se quiser apenas fazer upload para um dominio/subdominio sem Comp
 
 ## Requisitos
 
-- PHP 8.2+
+- PHP 8.3+
 - Composer
 - Node.js 18+
 - SQLite ou MySQL

@@ -200,6 +200,14 @@ function setupReportReadTracking() {
   });
 }
 
+function setupConfirmations() {
+  document.querySelectorAll('form[data-confirm]').forEach((form) => {
+    form.addEventListener('submit', (event) => {
+      if (!window.confirm(form.dataset.confirm || 'Tem a certeza?')) event.preventDefault();
+    });
+  });
+}
+
 function setupCarerSelectors() {
   document.querySelectorAll('[data-carer-selector]').forEach((select) => {
     select.addEventListener('change', () => {
@@ -319,4 +327,5 @@ document.addEventListener('DOMContentLoaded', () => {
   setupReportReplies();
   setupMobileNavigation();
   setupReportReadTracking();
+  setupConfirmations();
 });

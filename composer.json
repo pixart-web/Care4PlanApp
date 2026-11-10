@@ -3,7 +3,7 @@
   "type": "project",
   "description": "Care4All - gestao de escalas de apoio domiciliario.",
   "require": {
-    "php": "^8.2",
+    "php": "^8.3",
     "laravel/framework": "^11.0",
     "laravel/tinker": "^2.9"
   },

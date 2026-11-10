@@ -3,6 +3,31 @@
 Data: 30/10/2026. Alvo: `upload-ready/`, PHP standalone com SQLite.
 As pastas Laravel foram excluídas do upgrade. Nenhuma base real foi usada nos testes.
 
+## Revisão de segurança de 02/11/2026
+
+Foi feita uma nova revisão estática e dinâmica da aplicação atual, novamente sem
+usar uma base real. Foram corrigidos os seguintes pontos adicionais:
+
+- headers endurecidos com CSP restritiva, bloqueio de framing, Permissions-Policy,
+  COOP, no-store e HSTS quando o pedido chega diretamente por HTTPS;
+- remoção dos handlers JavaScript inline para permitir `script-src 'self'`;
+- sessões autenticadas com 30 minutos de inatividade, máximo absoluto de 8 horas
+  e rotação periódica do identificador;
+- login com limites explícitos de entrada, custo equivalente para utilizadores
+  inexistentes, rehash transparente, limpeza do contador da conta após sucesso e
+  auditoria de logout;
+- pedidos com arrays inesperados, ações desconhecidas ou corpo superior a 3 MB
+  são recusados antes de chegar à lógica de negócio;
+- requisito mínimo elevado para PHP 8.3 e Axios histórico elevado para 1.20.0,
+  devido ao fim de suporte de PHP 8.1 e vulnerabilidades publicadas nas versões
+  antigas de Axios.
+
+Validação final desta revisão: lint de todos os PHP, sintaxe de todos os JavaScript
+próprios, 67 testes de regressão e 16 verificações no Edge headless, incluindo os
+novos headers, pedidos malformados, limpeza do rate limit após login e ausência de
+erros CSP/JavaScript. Runtime local: PHP 8.5.12 oficial, com arquivo validado por
+SHA-256.
+
 ## Inventário Preservado
 
 | Fluxo | Implementação |
@@ -55,11 +80,11 @@ Migrações incrementais e idempotentes: coluna nullable `reports.deleted_at`; t
 ## Validação Executada
 
 - Lint de todos os PHP de upload-ready e sintaxe dos JavaScript próprios.
-- `tests/run.php`: 35 testes passaram, 0 falhas, na execução final. Inclui alteração real de password pelo handler HTTP, proteção de cascatas e criação apenas das ocorrências sem conflito.
+- `tests/run.php`: 67 testes passaram, 0 falhas, na execução final integrada. Inclui alteração real de password pelo handler HTTP, proteção de cascatas, pedidos malformados, headers de segurança, rate limit, perfis, tarifas e planeamento mensal.
 - Inclui esquema legado fictício, integridade e chaves estrangeiras, seed/hashes, login/logout, cookies, CSRF, perfis, relatórios, CRUD com falhas injetadas, Pocket/finanças, recorrência, DST, conflitos e replay, filtros e backup consistente em WAL.
-- `tests/browser-qa.cjs`: 12 verificações passaram no Edge headless: login, dia 24h, semana, pré-visualização, criação de cinco serviços, invalidação da confirmação, duplicação, Escape, desktop/tablet/mobile e calendário da cuidadora com locale local.
+- `tests/browser-qa.cjs`: 16 verificações passaram no Edge headless: login, dia 24h, semana, mês, pré-visualização, criação de cinco serviços, invalidação da confirmação, duplicação, Escape, desktop/tablet/mobile e calendário da cuidadora com locale local.
 - Capturas inspecionadas em `output/playwright/`; dados exclusivamente fictícios. Não entram no pacote de produção nem no Git.
-- Browser e PHP CLI locais não substituem testes de Apache, TLS ou PHP 8.1 exato do alojamento. O runtime disponível nesta máquina é PHP 8.5.8.
+- Browser e PHP CLI locais não substituem testes de Apache, TLS ou da versão PHP exata do alojamento. O runtime desta revisão foi PHP 8.5.12.
 
 ## Riscos Residuais E Limites
 

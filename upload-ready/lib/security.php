@@ -6,6 +6,36 @@ function valid_new_password(string $password): bool
     return strlen($password) >= 12 && strlen($password) <= 1024 && $password !== 'CHANGE_ME_ON_SERVER';
 }
 
+function request_is_https(): bool
+{
+    return ! empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+}
+
+function enforce_authenticated_session_lifetime(): void
+{
+    if (empty($_SESSION['user_id'])) {
+        return;
+    }
+
+    $now = time();
+    $started = (int) ($_SESSION['_auth_started_at'] ?? $now);
+    $lastActivity = (int) ($_SESSION['_auth_last_activity'] ?? $now);
+    if ($now - $lastActivity > 1800 || $now - $started > 28800) {
+        $_SESSION = ['_csrf' => bin2hex(random_bytes(32)), 'flash_error' => 'A sessão expirou. Entre novamente.'];
+        session_regenerate_id(true);
+        return;
+    }
+
+    $_SESSION['_auth_started_at'] = $started;
+    $_SESSION['_auth_last_activity'] = $now;
+    $lastRotation = (int) ($_SESSION['_auth_rotated_at'] ?? $now);
+    if ($now - $lastRotation >= 900) {
+        session_regenerate_id(true);
+        $lastRotation = $now;
+    }
+    $_SESSION['_auth_rotated_at'] = $lastRotation;
+}
+
 function application_exception(Throwable $error): void
 {
     $reference = bin2hex(random_bytes(6));
@@ -52,6 +82,11 @@ function login_bucket(string $login): string
     return hash('sha256', strtolower($login) . '|' . ($_SERVER['REMOTE_ADDR'] ?? 'local'));
 }
 
+function login_ip_bucket(): string
+{
+    return hash('sha256', 'ip|' . ($_SERVER['REMOTE_ADDR'] ?? 'local'));
+}
+
 function login_limited(PDO $pdo, string $login, ?int $at = null): bool
 {
     $stmt = $pdo->prepare('SELECT attempts FROM login_attempts WHERE bucket = ? AND window_started > ?');
@@ -63,9 +98,14 @@ function login_failed(PDO $pdo, string $login, ?int $at = null): void
 {
     $at ??= time();
     $pdo->prepare('DELETE FROM login_attempts WHERE window_started <= ?')->execute([$at - 900]);
-    foreach ([login_bucket($login), hash('sha256', 'ip|' . ($_SERVER['REMOTE_ADDR'] ?? 'local'))] as $bucket) {
+    foreach ([login_bucket($login), login_ip_bucket()] as $bucket) {
         $pdo->prepare('INSERT INTO login_attempts VALUES(?, 1, ?) ON CONFLICT(bucket) DO UPDATE SET attempts = attempts + 1')->execute([$bucket, $at]);
     }
+}
+
+function login_succeeded(PDO $pdo, string $login): void
+{
+    $pdo->prepare('DELETE FROM login_attempts WHERE bucket = ?')->execute([login_bucket($login)]);
 }
 
 function may_report_patient(PDO $pdo, array $user, int $patientId): bool
@@ -90,6 +130,11 @@ function validate_request_shape(): void
         http_response_code(400);
         exit('Pedido inválido.');
     };
+    // Allows the documented 2 MB profile photo plus multipart form overhead.
+    if (isset($_SERVER['CONTENT_LENGTH']) && (int) $_SERVER['CONTENT_LENGTH'] > 3 * 1024 * 1024) {
+        http_response_code(413);
+        exit('Pedido demasiado grande.');
+    }
     foreach ([$_GET, $_POST] as $source => $values) {
         foreach ($values as $key => $value) {
             if ($source === 1 && in_array($key, ['recurrence_dates', 'recurrence_weekdays'], true) && is_array($value)) {

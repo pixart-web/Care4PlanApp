@@ -3,23 +3,31 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/lib/security.php';
 
 ini_set('display_errors', '0');
 ini_set('session.use_strict_mode', '1');
-session_set_cookie_params(['httponly' => true, 'secure' => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off', 'samesite' => 'Lax', 'path' => '/']);
+ini_set('session.use_only_cookies', '1');
+session_set_cookie_params(['httponly' => true, 'secure' => request_is_https(), 'samesite' => 'Lax', 'path' => '/']);
 session_start();
-require_once __DIR__ . '/lib/security.php';
 require_once __DIR__ . '/lib/scheduling.php';
 require_once __DIR__ . '/lib/profiles.php';
 require_once __DIR__ . '/lib/rates.php';
 require_once __DIR__ . '/lib/planning.php';
 set_exception_handler('application_exception');
+enforce_authenticated_session_lifetime();
 if (PHP_SAPI !== 'cli') {
     header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: SAMEORIGIN');
+    header('X-Frame-Options: DENY');
     header('Referrer-Policy: same-origin');
-    header("Content-Security-Policy: frame-ancestors 'self'; base-uri 'self'; form-action 'self'");
+    header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()');
+    header('Cross-Origin-Opener-Policy: same-origin');
     header('Cache-Control: no-store');
+    header('Pragma: no-cache');
+    if (request_is_https()) {
+        header('Strict-Transport-Security: max-age=31536000');
+    }
 }
 
 function db(): PDO

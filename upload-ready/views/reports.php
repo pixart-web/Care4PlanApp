@@ -106,7 +106,7 @@ layout('Relatórios - Care4All', function () use ($isCarer, $carers, $patients, 
                                     </form>
                                 <?php endif; ?>
                                 <button class="btn btn-secondary" type="button" data-open-modal="reply-report-modal" data-reply-report-id="<?= $report['id'] ?>" data-reply-report-title="<?= e($report['title']) ?>">Responder</button>
-                                <form method="post" onsubmit="return confirm('Tem a certeza que pretende apagar este relatório?');">
+                                <form method="post" data-confirm="Tem a certeza que pretende apagar este relatório?">
                                     <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
                                     <input type="hidden" name="action" value="delete_report">
                                     <input type="hidden" name="id" value="<?= $report['id'] ?>">

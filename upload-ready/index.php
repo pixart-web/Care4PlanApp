@@ -8,8 +8,8 @@ require_once __DIR__ . '/lib/events.php';
 verify_csrf();
 validate_request_shape();
 
-$page = $_GET['page'] ?? 'home';
-$action = $_POST['action'] ?? null;
+$page = isset($_GET['page']) && is_string($_GET['page']) ? $_GET['page'] : 'home';
+$action = isset($_POST['action']) && is_string($_POST['action']) ? $_POST['action'] : null;
 
 if ($action) {
     handle_action($action);
@@ -37,9 +37,14 @@ function handle_action(string $action): void
 function dispatch_action(PDO $pdo, string $action): void
 {
     if ($action === 'login') {
-        $login = trim($_POST['username'] ?? '');
+        $login = trim((string) ($_POST['username'] ?? ''));
+        $password = (string) ($_POST['password'] ?? '');
+        if ($login === '' || strlen($login) > 254 || $password === '' || strlen($password) > 1024) {
+            login_failed($pdo, substr($login, 0, 254));
+            reject_action('Credenciais inválidas.', 'login');
+        }
         $ip = $pdo->prepare('SELECT attempts FROM login_attempts WHERE bucket = ? AND window_started > ?');
-        $ip->execute([hash('sha256', 'ip|' . ($_SERVER['REMOTE_ADDR'] ?? 'local')), time() - 900]);
+        $ip->execute([login_ip_bucket(), time() - 900]);
         if (login_limited($pdo, $login) || (int) $ip->fetchColumn() >= 30) {
             reject_action('Demasiadas tentativas. Tente novamente dentro de 15 minutos.', 'login');
         }
@@ -47,9 +52,23 @@ function dispatch_action(PDO $pdo, string $action): void
         $stmt->execute([$login, $login, $login]);
         $user = $stmt->fetch();
 
-        if ($user && password_verify($_POST['password'] ?? '', $user['password'])) {
+        $passwordMatches = $user
+            ? password_verify($password, $user['password'])
+            : password_verify($password, '$2y$12$Gn69FfU77v5t4TnHSZR5k.5R0107Jwap/QJSGg09C42DcyS.iobzW');
+        if ($user && $passwordMatches) {
+            if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
+                $pdo->prepare('UPDATE users SET password = ?, updated_at = ? WHERE id = ?')
+                    ->execute([password_hash($password, PASSWORD_DEFAULT), now(), $user['id']]);
+            }
+            login_succeeded($pdo, $login);
             session_regenerate_id(true);
-            $_SESSION = ['_csrf' => bin2hex(random_bytes(32))];
+            $authenticatedAt = time();
+            $_SESSION = [
+                '_csrf' => bin2hex(random_bytes(32)),
+                '_auth_started_at' => $authenticatedAt,
+                '_auth_last_activity' => $authenticatedAt,
+                '_auth_rotated_at' => $authenticatedAt,
+            ];
             $_SESSION['user_id'] = $user['id'];
             audit_event($pdo, 'login');
             redirect('dashboard');
@@ -60,6 +79,9 @@ function dispatch_action(PDO $pdo, string $action): void
     }
 
     if ($action === 'logout') {
+        if (! empty($_SESSION['user_id'])) {
+            audit_event($pdo, 'logout');
+        }
         $_SESSION = [];
         $params = session_get_cookie_params();
         setcookie(session_name(), '', ['expires' => time() - 42000, 'path' => $params['path'], 'secure' => $params['secure'], 'httponly' => true, 'samesite' => 'Lax']);

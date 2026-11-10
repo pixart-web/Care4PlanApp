@@ -180,7 +180,7 @@ layout('Cuidadoras - Care4All', function () use ($carers) { ?>
                 </div>
                 <button class="modal-close" type="button" data-close-modal aria-label="Fechar">x</button>
             </div>
-            <form method="post" class="modal-body" onsubmit="return confirm('Apagar esta cuidadora?')">
+            <form method="post" class="modal-body" data-confirm="Apagar esta cuidadora?">
                 <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
                 <input type="hidden" name="action" value="delete_carer">
                 <label class="field">

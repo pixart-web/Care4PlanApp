@@ -51,11 +51,20 @@ try {
     $editor=http_login('fixture-editor',$password);
     $care=http_login('fixture-carer',$password);
     require __DIR__ . '/technical-http.php';
-    test('HTTP login regenerates sessions; cookies use HttpOnly and SameSite',function (): void {
+    test('HTTP login regenerates sessions and sends hardened security headers',function (): void {
         $cookies=[];
         $response=http_request('/index.php?page=login',$cookies);
         $headers=implode("\n",$response['headers']);
         check(stripos($headers,'HttpOnly')!==false); check(stripos($headers,'SameSite=Lax')!==false);
+        check(stripos($headers,'X-Frame-Options: DENY')!==false);
+        check(stripos($headers,"Content-Security-Policy: default-src 'self'; script-src 'self'")!==false);
+        check(stripos($headers,'Permissions-Policy:')!==false);
+        check(stripos($headers,'Cross-Origin-Opener-Policy: same-origin')!==false);
+    });
+    test('HTTP malformed request structures and unknown actions are rejected',function () use (&$admin): void {
+        same(400,http_request('/index.php?page%5B%5D=login',$admin['cookies'])['status']);
+        same(400,http_request('/index.php?page=dashboard',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>['save_patient'],'name'=>'No'])['status']);
+        same(400,http_request('/index.php?page=dashboard',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'unknown_action'])['status']);
     });
     test('HTTP CSRF rejects missing, wrong and array token without mutation',function () use ($pdo,&$admin): void {
         $before=snapshot($pdo);
@@ -172,6 +181,17 @@ try {
     test('HTTP logout invalidates authenticated session',function () use (&$care): void {
         same(302,http_request('/index.php?page=dashboard',$care['cookies'],['_csrf'=>$care['csrf'],'action'=>'logout'])['status']);
         same(302,http_request('/index.php?page=dashboard',$care['cookies'])['status']);
+    });
+    test('HTTP successful login clears the account failure bucket',function () use ($password): void {
+        $cookies=[]; $login=http_request('/index.php?page=login',$cookies); $csrf=http_csrf($login);
+        for ($i=0;$i<4;$i++) same(302,http_request('/index.php?page=login',$cookies,['_csrf'=>$csrf,'action'=>'login','username'=>'Fernanda','password'=>$password.'-wrong'])['status']);
+        same(302,http_request('/index.php?page=login',$cookies,['_csrf'=>$csrf,'action'=>'login','username'=>'Fernanda','password'=>$password])['status']);
+        $dashboard=http_request('/index.php?page=dashboard',$cookies); same(200,$dashboard['status']);
+        same(302,http_request('/index.php?page=dashboard',$cookies,['_csrf'=>http_csrf($dashboard),'action'=>'logout'])['status']);
+        $login=http_request('/index.php?page=login',$cookies); $csrf=http_csrf($login);
+        same(302,http_request('/index.php?page=login',$cookies,['_csrf'=>$csrf,'action'=>'login','username'=>'Fernanda','password'=>$password.'-wrong'])['status']);
+        same(302,http_request('/index.php?page=login',$cookies,['_csrf'=>$csrf,'action'=>'login','username'=>'Fernanda','password'=>$password])['status']);
+        same(200,http_request('/index.php?page=dashboard',$cookies)['status']);
     });
     test('HTTP five failed logins throttle even correct credentials',function () use ($password): void {
         $cookies=[]; $login=http_request('/index.php?page=login',$cookies); $csrf=http_csrf($login);

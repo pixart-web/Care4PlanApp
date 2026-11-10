@@ -5,7 +5,7 @@ O alvo é exclusivamente o conteúdo de `upload-ready/`.
 
 ## 1. Preparação
 
-1. Criar um subdomínio de teste protegido, com HTTPS e PHP 8.1+ (`pdo_sqlite`). A ferramenta opcional de backup precisa também de `sqlite3`.
+1. Criar um subdomínio de teste protegido, com HTTPS e PHP 8.3+ ainda suportado (`pdo_sqlite`). A ferramenta opcional de backup precisa também de `sqlite3`.
 2. Confirmar que os ficheiros .htaccess são respeitados, `AllowOverride` está ativo e a pasta da base permite escrita ao utilizador PHP. Não usar permissões 777.
 3. Registar a versão atual e guardar uma cópia dos ficheiros da aplicação fora de public_html.
 4. Não publicar tests/, .runtime/, tools/, logs, .git/ ou pastas Laravel. Nunca incluir a base SQLite ou config-local.php num commit/ZIP de código.
@@ -66,4 +66,4 @@ Se ocorrer erro, manter o acesso bloqueado, consultar apenas a referência de er
 
 ## Limites Da Verificação Local
 
-Os testes automáticos usam fixtures e PHP/Edge locais. Apache/cPanel, TLS, PHP 8.1 do alojamento, recuperação integral de conta e concorrência real exigem a validação acima. O procedimento não autoriza uma publicação automática.
+Os testes automáticos usam fixtures e PHP/Edge locais. Apache/cPanel, TLS, a versão PHP do alojamento, recuperação integral de conta e concorrência real exigem a validação acima. O procedimento não autoriza uma publicação automática.

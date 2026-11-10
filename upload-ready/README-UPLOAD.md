@@ -6,7 +6,7 @@ Nao precisa de Composer, npm, Laravel, artisan ou instalacao no servidor.
 
 ## Requisitos do servidor
 
-- PHP 8.1 ou superior
+- PHP 8.3 ou superior, numa versão ainda suportada pelo PHP
 - Extensao PHP `pdo_sqlite` ativa
 - Permissao de escrita na pasta `data`
 

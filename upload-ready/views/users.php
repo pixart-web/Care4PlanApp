@@ -154,7 +154,7 @@ layout('Utilizadores - Care4All', function () use ($users, $carers) { ?>
                 </div>
                 <button class="modal-close" type="button" data-close-modal aria-label="Fechar">x</button>
             </div>
-            <form method="post" class="modal-body" onsubmit="return confirm('Apagar este utilizador?')">
+            <form method="post" class="modal-body" data-confirm="Apagar este utilizador?">
                 <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
                 <input type="hidden" name="action" value="delete_user">
                 <label class="field">
