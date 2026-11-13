@@ -156,3 +156,24 @@ test('HTTP carer creation requires date of birth and photo writes rollback toget
     profile_photo_save($pdo,'carer',999999,['mime'=>'image/png','content'=>'fixture rollback only']);$pdo->rollBack();
     same(0,(int)$pdo->query('SELECT COUNT(*) FROM profile_photos')->fetchColumn());
 });
+test('Printed statements and calendars respect role and output format',function()use(&$admin,&$editor,&$care,$patient):void{
+    $url='/index.php?page=client-statement&month=2026-11&client='.$patient;
+    $response=http_request($url,$admin['cookies']);
+    same(200,$response['status']);check(str_contains($response['body'],'Total dos serviços concluídos'));
+    same(403,http_request($url,$care['cookies'])['status']);
+    same(403,http_request($url,$editor['cookies'])['status']);
+    foreach (['day','week','month'] as $period) {
+        $sheet=http_request('/index.php?page=scales&full_sheet=1&municipality=all&period='.$period,$editor['cookies']);
+        same(200,$sheet['status']);check(str_contains($sheet['body'],'data-print'));
+    }
+});
+test('Login stays anonymous when its audit write fails',function()use($pdo,$password):void{
+    $cookies=[];
+    $page=http_request('/index.php?page=login',$cookies);
+    $pdo->exec("CREATE TRIGGER fixture_login_audit BEFORE INSERT ON audit_events WHEN NEW.action='login' BEGIN SELECT RAISE(ABORT,'fixture'); END");
+    try {
+        $response=http_request('/index.php',$cookies,['_csrf'=>http_csrf($page),'action'=>'login','username'=>'Andreia','password'=>$password]);
+        same(500,$response['status']);
+        same(302,http_request('/index.php?page=dashboard',$cookies)['status']);
+    } finally { $pdo->exec('DROP TRIGGER fixture_login_audit'); }
+});

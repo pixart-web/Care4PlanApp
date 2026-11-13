@@ -182,17 +182,25 @@ function scheduling_check(PDO $pdo, array $plan): array
 }
 
 /** Caller owns authentication/authorization and CSRF. Preview never writes. */
-function scheduling_preview(PDO $pdo, array $data): array
+function scheduling_preview_hash(array $plan, array $conflicts): string
+{
+    return hash('sha256', json_encode([$plan, $conflicts], JSON_THROW_ON_ERROR));
+}
+
+function scheduling_preview(PDO $pdo, array $data, ?string &$proposalHash = null): array
 {
     try {
-        return scheduling_check($pdo, scheduling_plan($pdo, $data));
+        $plan = scheduling_plan($pdo, $data);
+        $result = scheduling_check($pdo, $plan);
+        $proposalHash = scheduling_preview_hash($plan, $result['conflicts']);
+        return $result;
     } catch (InvalidArgumentException $error) {
         return ['valid' => false, 'count' => 0, 'created_count' => 0, 'eligible_count' => 0, 'skipped_count' => 0, 'occurrences' => [], 'conflicts' => [], 'errors' => [$error->getMessage()]];
     }
 }
 
 /** Requires service_batches(idempotency_key PK, payload_hash, result_json, created_at). */
-function scheduling_commit(PDO $pdo, array $data): array
+function scheduling_commit(PDO $pdo, array $data, ?string $expectedPreview = null): array
 {
     $key = (string) ($data['idempotency_key'] ?? '');
     if (! preg_match('/^[A-Za-z0-9_-]{16,128}$/D', $key)) {
@@ -218,9 +226,13 @@ function scheduling_commit(PDO $pdo, array $data): array
             return $result;
         }
         $result = scheduling_check($pdo, $plan);
+        if ($expectedPreview !== null && !hash_equals($expectedPreview, scheduling_preview_hash($plan, $result['conflicts']))) {
+            throw new InvalidArgumentException('Pré-visualize as escalas antes de guardar. A seleção foi alterada ou expirou.');
+        }
         if ($result['valid']) {
             $overlaps = planning_shared_visits($pdo, $plan, $result['conflicts']);
-            $confirmation = hash('sha256', json_encode([$plan, $overlaps], JSON_THROW_ON_ERROR));
+            $_SESSION['shared_visit_secret'] ??= bin2hex(random_bytes(32));
+            $confirmation = hash_hmac('sha256', json_encode([$key, $plan, $overlaps], JSON_THROW_ON_ERROR), $_SESSION['shared_visit_secret']);
             if ($overlaps && !hash_equals($confirmation, (string)($data['shared_confirmation'] ?? ''))) {
                 $pdo->exec('ROLLBACK');
                 return array_merge($result, ['valid'=>false, 'shared_visits'=>$overlaps, 'shared_confirmation'=>$confirmation]);
