@@ -11,7 +11,7 @@ $view = in_array($_GET['view'] ?? '', ['list', 'calendar'], true) ? $_GET['view'
 $stmt = db()->prepare('SELECT services.id, services.starts_at, services.ends_at, services.status,
     services.municipality, services.observations, services.hourly_rate, services.hourly_rate_special, patients.name AS patient_name, patients.address
     FROM services JOIN patients ON patients.id = services.patient_id
-    WHERE services.carer_id = ? AND services.starts_at < ? AND services.ends_at > ?
+    WHERE services.status != \'CANCELLED\' AND services.carer_id = ? AND services.starts_at < ? AND services.ends_at > ?
     ORDER BY services.starts_at, services.ends_at, services.id');
 $stmt->execute([(int) $user['carer_id'], $day->modify('+1 day')->format('Y-m-d 00:00:00'), $day->format('Y-m-d 00:00:00')]);
 $services = $stmt->fetchAll();

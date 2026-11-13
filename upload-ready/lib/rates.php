@@ -27,16 +27,31 @@ function service_rate_label(array $service): string
     return money($regular).($special!==null && (float)$special!==$regular?' / '.money((float)$special):'');
 }
 
-/** Split at local midnight; retain the caller's legacy wall-time/elapsed-time convention. */
-function service_rate_amount(array $service,string $regular='hourly_rate',string $special='hourly_rate_special',bool $elapsed=false): float
+function service_rate_parts(array $service, string $regular='hourly_rate', string $special='hourly_rate_special'): array
 {
-    $zone=new DateTimeZone('Europe/Lisbon');
-    $start=new DateTimeImmutable($service['starts_at'],$zone); $end=new DateTimeImmutable($service['ends_at'],$zone); $total=0.0;
-    while ($start<$end) {
-        $next=$start->modify('tomorrow')->setTime(0,0); if ($next>$end) $next=$end;
-        $rate=special_rate_day($start->format('Y-m-d'))?($service[$special]??$service[$regular]??0):($service[$regular]??0);
-        $seconds=$elapsed?$next->getTimestamp()-$start->getTimestamp():strtotime($next->format('Y-m-d H:i:s').' UTC')-strtotime($start->format('Y-m-d H:i:s').' UTC');
-        $total+=max(0,$seconds)/3600*(float)$rate; $start=$next;
+    $zone = new DateTimeZone('Europe/Lisbon');
+    $cursor = new DateTimeImmutable($service['starts_at'], $zone);
+    $end = new DateTimeImmutable($service['ends_at'], $zone);
+    $parts = ['weekday'=>0.0, 'special'=>0.0];
+    while ($cursor < $end) {
+        $next = min($end, $cursor->modify('tomorrow midnight'));
+        $isSpecial = special_rate_day($cursor->format('Y-m-d'));
+        $rate = $isSpecial ? ($service[$special] ?? $service[$regular] ?? 0) : ($service[$regular] ?? 0);
+        $hours = ($next->getTimestamp() - $cursor->getTimestamp()) / 3600;
+        $parts[$isSpecial ? 'special' : 'weekday'] += $hours * (float)$rate;
+        $cursor = $next;
     }
-    return $total;
+    return array_map(fn($amount)=>round($amount, 2), $parts);
+}
+
+function service_rate_amount(array $service, string $regular='hourly_rate', string $special='hourly_rate_special'): float
+{
+    return array_sum(service_rate_parts($service, $regular, $special));
+}
+
+function client_service_amount(array $service, array $client): float
+{
+    $service['income_regular'] = $service['client_rate_snapshot'] ?? $client['client_hourly_rate'] ?? 0;
+    $service['income_special'] = $service['client_special_snapshot'] ?? $service['income_regular'];
+    return service_rate_amount($service, 'income_regular', 'income_special');
 }

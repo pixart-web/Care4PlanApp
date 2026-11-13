@@ -388,7 +388,7 @@ function pocket_for_carer(int $carerId): float
 
 function service_pocket_value(array $service): float
 {
-    return round(service_rate_amount($service, 'hourly_rate', 'hourly_rate_special', true), 2);
+    return round(service_rate_amount($service), 2);
 }
 
 function has_overlap(int $carerId, string $start, string $end, ?int $ignoreId = null): bool

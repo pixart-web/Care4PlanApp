@@ -7,7 +7,7 @@ unset($_SESSION['flash'], $_SESSION['flash_error']);
 $isCarer = $user && $user['role'] === 'CARER';
 $nav = $isCarer
     ? ['dashboard' => 'Dashboard', 'scales' => 'Escalas', 'pocket' => 'Pocket', 'profile' => 'Perfil', 'reports' => 'Relatórios']
-    : ['dashboard' => 'Dashboard', 'scales' => 'Escalas', 'carers' => 'Cuidadoras', 'patients' => 'Clientes', 'reports' => 'Relatórios', 'settings' => 'Configurações'];
+    : ['dashboard' => 'Dashboard', 'scales' => 'Escalas', 'carers' => 'Cuidadoras', 'patients' => 'Clientes', 'reports' => 'Relatórios', 'settings' => 'Configurações', 'profile' => 'Perfil'];
 if ($user && $user['role'] === 'ADMIN') {
     $nav = array_slice($nav, 0, 4, true) + ['users' => 'Utilizadores', 'finances' => 'Finanças'] + array_slice($nav, 4, null, true);
 }

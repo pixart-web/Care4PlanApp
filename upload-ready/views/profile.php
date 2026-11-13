@@ -1,12 +1,12 @@
 <?php
-$user = require_role(['CARER']);
+$user = require_auth();
 $stmt = db()->prepare('SELECT * FROM carers WHERE id = ?');
 $stmt->execute([$user['carer_id']]);
-$carer = $stmt->fetch();
+$carer = $user['role'] === 'CARER' ? $stmt->fetch() : null;
 
 layout('Perfil - Care4All', function () use ($carer) { ?>
     <div class="page-head"><div><h1>Perfil</h1><p class="muted">Atualiza os teus dados de contacto.</p></div></div>
-    <div class="card" style="max-width:680px">
+    <?php if ($carer): ?><div class="card" style="max-width:680px">
         <form method="post" enctype="multipart/form-data">
             <?php profile_photo_field('carer', (int)$carer['id']); ?>
             <input type="hidden" name="_csrf" value="<?= csrf_token() ?>"><input type="hidden" name="action" value="save_profile">
@@ -17,5 +17,13 @@ layout('Perfil - Care4All', function () use ($carer) { ?>
             <button class="btn btn-primary">Guardar</button>
         </form>
     </div>
+    <?php endif; ?>
+    <section class="card"><h2>Alterar palavra-passe</h2><form method="post">
+        <input type="hidden" name="action" value="change_password"><input type="hidden" name="_csrf" value="<?= e(csrf_token()) ?>">
+        <label class="field">Palavra-passe atual<input class="input" type="password" name="current_password" autocomplete="current-password" required></label>
+        <label class="field">Nova palavra-passe (mínimo 12 caracteres)<input class="input" type="password" name="new_password" autocomplete="new-password" minlength="12" required></label>
+        <label class="field">Confirmar nova palavra-passe<input class="input" type="password" name="confirm_password" autocomplete="new-password" required></label>
+        <button class="btn btn-primary">Alterar palavra-passe</button>
+    </form></section>
 <?php });
 

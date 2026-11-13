@@ -146,7 +146,7 @@ function validate_request_shape(): void
             if (in_array($key, ['id', 'patient_id', 'carer_id'], true) && $value !== '' && filter_var($value, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]) === false) $invalid();
         }
     }
-    if (isset($_POST['action']) && !in_array($_POST['action'], ['login', 'logout', 'save_carer', 'delete_carer', 'save_patient', 'delete_patient', 'preview_service', 'save_service', 'cancel_service', 'delete_service', 'done_service', 'undo_service', 'save_profile', 'save_report', 'mark_report_read', 'reply_report', 'delete_report', 'save_user', 'delete_user'], true)) $invalid();
+    if (isset($_POST['action']) && !in_array($_POST['action'], ['login', 'logout', 'save_carer', 'delete_carer', 'save_patient', 'delete_patient', 'preview_service', 'save_service', 'cancel_service', 'delete_service', 'done_service', 'undo_service', 'change_password', 'save_profile', 'save_report', 'mark_report_read', 'reply_report', 'delete_report', 'save_user', 'delete_user'], true)) $invalid();
     if (in_array($_POST['action'] ?? '', ['delete_carer', 'delete_patient', 'delete_user', 'cancel_service', 'delete_service', 'done_service', 'undo_service', 'mark_report_read', 'reply_report', 'delete_report'], true) && (int) ($_POST['id'] ?? 0) <= 0) $invalid();
 }
 
@@ -251,8 +251,6 @@ function validate_action(PDO $pdo, string $action, array $user): void
                 if ($stmt->fetchColumn()) reject_action('Este registo tem histórico associado e não pode ser apagado.', $table);
             }
         }
-        if ($action === 'delete_service') {
-            reject_action('Para preservar o histórico, cancele a escala em vez de a apagar.', 'scales');
-        }
+
     }
 }

@@ -173,10 +173,10 @@ try {
         same(302,http_request('/index.php?page=scales',$care['cookies'],['_csrf'=>$care['csrf'],'action'=>'done_service','id'=>$service])['status']);
         same('DONE',$pdo->query('SELECT status FROM services WHERE id='.$service)->fetchColumn());
         same(302,http_request('/index.php?page=scales',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'cancel_service','id'=>$service])['status']);
-        same('CANCELLED',$pdo->query('SELECT status FROM services WHERE id='.$service)->fetchColumn());
+        same(false,$pdo->query('SELECT status FROM services WHERE id='.$service)->fetchColumn());
         same(403,http_request('/index.php?page=scales',$care['cookies'],['_csrf'=>$care['csrf'],'action'=>'done_service','id'=>$service])['status']);
         same(302,http_request('/index.php?page=scales',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'delete_service','id'=>$service])['status']);
-        same('CANCELLED',$pdo->query('SELECT status FROM services WHERE id='.$service)->fetchColumn());
+        same(false,$pdo->query('SELECT status FROM services WHERE id='.$service)->fetchColumn());
     });
     test('HTTP logout invalidates authenticated session',function () use (&$care): void {
         same(302,http_request('/index.php?page=dashboard',$care['cookies'],['_csrf'=>$care['csrf'],'action'=>'logout'])['status']);

@@ -88,7 +88,7 @@ if (! $isCarer) {
         FROM services
         JOIN patients ON patients.id = services.patient_id
         JOIN carers ON carers.id = services.carer_id
-        WHERE services.starts_at < ? AND services.ends_at > ?";
+        WHERE services.status != 'CANCELLED' AND services.starts_at < ? AND services.ends_at > ?";
     $params = [$periodEnd, $periodStart];
     if ($selectedMunicipality === '__unassigned') {
         $sql .= " AND TRIM(COALESCE(services.municipality, '')) = ''";
@@ -148,6 +148,10 @@ $pageUrl = function (int $number): string {
     return 'index.php?' . http_build_query(array_merge($_GET, ['page' => 'scales', 'carer_page' => $number]));
 };
 
+if (($_GET['full_sheet'] ?? '') === '1') {
+    require __DIR__.'/calendar-sheet.php';
+    return;
+}
 require __DIR__ . '/scales-workspace.php';
 
 function render_service_chip(array $service, string $selectedMunicipality, bool $unused = false, int $visibleMinutes = 1440): void {

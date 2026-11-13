@@ -48,6 +48,13 @@ if (! empty($reports)) {
 }
 
 layout('Relatórios - Care4All', function () use ($isCarer, $carers, $patients, $reports, $replyHistory) { ?>
+    <?php if ((require_auth()['role'] ?? '') === 'ADMIN'): ?>
+    <section class="card"><h2>Relatório de serviços prestados</h2><form method="get" target="_blank">
+        <input type="hidden" name="page" value="client-statement">
+        <label class="field">Cliente<select class="input" name="client" required><option value="">Selecionar</option><?php foreach ($patients as $patient): ?><option value="<?= (int)$patient['id'] ?>"><?= e($patient['name']) ?></option><?php endforeach; ?></select></label>
+        <label class="field">Mês<input class="input" type="month" name="month" value="<?= date('Y-m') ?>" required></label>
+        <button class="btn btn-primary">Gerar relatório</button></form></section>
+    <?php endif; ?>
     <div class="page-head">
         <div>
             <h1>Relatórios</h1>

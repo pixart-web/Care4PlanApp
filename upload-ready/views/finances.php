@@ -11,11 +11,8 @@ foreach ($services as $service) $byPatient[$service['patient_id']][]=$service;
 foreach ($rows as &$row) {
     $row['hours']=0.0; $row['income']=0.0; $row['cost']=0.0;
     foreach ($byPatient[$row['id']]??[] as $service) {
-        $service['income_regular']=$service['client_rate_snapshot']??$row['client_hourly_rate'];
-        // Legacy services keep the former single client rate until explicitly edited.
-        $service['income_special']=$service['client_special_snapshot']??$service['income_regular'];
-        $row['hours']+=max(0,(strtotime($service['ends_at'].' UTC')-strtotime($service['starts_at'].' UTC'))/3600);
-        $row['income']+=service_rate_amount($service,'income_regular','income_special');
+        $row['hours']+=max(0,(strtotime($service['ends_at'])-strtotime($service['starts_at']))/3600);
+        $row['income']+=client_service_amount($service,$row);
         $row['cost']+=service_rate_amount($service);
     }
 }

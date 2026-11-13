@@ -7,8 +7,13 @@ window.carePocketEstimate = (startText,endText,weekday,special) => {
     const dates=['01-01','04-25','05-01','06-10','08-15','10-05','11-01','12-01','12-08','12-25'].map(date=>year+'-'+date);
     for(const offset of [-2,0,60])dates.push(new Date(Date.UTC(year,month-1,day+offset)).toISOString().slice(0,10));return dates;
   };
+  // Inputs encode Lisbon wall times in UTC fields. Subtract the Lisbon offset
+  // at each endpoint to obtain the elapsed duration across clock changes.
+  const clock = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Lisbon',timeZoneName:'shortOffset'});
+  const offset = date => clock.formatToParts(date).find(part=>part.type==='timeZoneName').value === 'GMT+1' ? 3600000 : 0;
+  const instant = date => +date - offset(new Date(+date - offset(date)));
   let total=0,cursor=start;
-  while(cursor<end){const next=new Date(Math.min(+end,Date.UTC(cursor.getUTCFullYear(),cursor.getUTCMonth(),cursor.getUTCDate()+1)));const isSpecial=[0,6].includes(cursor.getUTCDay())||holidays(cursor.getUTCFullYear()).includes(cursor.toISOString().slice(0,10));total+=(next-cursor)/3600000*Number(isSpecial&&special!==''?special:weekday);cursor=next;}
+  while(cursor<end){const next=new Date(Math.min(+end,Date.UTC(cursor.getUTCFullYear(),cursor.getUTCMonth(),cursor.getUTCDate()+1)));const isSpecial=[0,6].includes(cursor.getUTCDay())||holidays(cursor.getUTCFullYear()).includes(cursor.toISOString().slice(0,10));total+=(instant(next)-instant(cursor))/3600000*Number(isSpecial&&special!==''?special:weekday);cursor=next;}
   return total;
 };
 document.addEventListener('DOMContentLoaded', () => {
@@ -24,14 +29,23 @@ document.addEventListener('DOMContentLoaded', () => {
       form.querySelectorAll('[data-extra-times] input').forEach(input=>{input.disabled=!extra;input.required=extra&&input.name.endsWith('_2');});
     };
     const reset=()=>{field('extra_times').value='0';field('edit_series').value='0';form.querySelectorAll('[data-extra-times] input').forEach(input=>input.value='');refresh();};
-    form.addEventListener('service-selected',reset);
+    let originalCarer = '';
+    form.addEventListener('service-selected', () => {
+      originalCarer = field('carer_id').value;
+      reset();
+    });
     document.getElementById('open-new-service').addEventListener('click',()=>{reset();field('hourly_rate_special').value='';});
     document.getElementById('clear-service').addEventListener('click',reset);
     field('extra_times').addEventListener('change',refresh);
     field('carer_id').addEventListener('change',()=>{
-      if (field('id').value) return;
+
       const option=field('carer_id').selectedOptions[0];
-      if(option?.dataset.weekday)field('hourly_rate').value=option.dataset.weekday;
+      if (field('id').value && option?.value && option.value !== originalCarer) {
+        const apply = window.confirm('Substituir também a cuidadora nos próximos serviços agendados desta série?');
+        field('edit_series').value = apply ? 'future' : '0';
+        field('edit_series').dispatchEvent(new Event('change', {bubbles:true}));
+      }
+      field('hourly_rate').value=option?.dataset.weekday || field('hourly_rate').defaultValue;
       field('hourly_rate_special').value=option?.dataset.special||'';
       field('hourly_rate').dispatchEvent(new Event('input',{bubbles:true}));
     });
@@ -73,4 +87,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }catch(error){if(current===generation)preview.textContent=error.message;}finally{button.disabled=false;}
   });
   month.addEventListener('submit',event=>{if(submitting||!approved||snapshot()!==approved){event.preventDefault();return;}submitting=true;submit.disabled=true;});
+});
+
+document.querySelector('[data-sheet-popup]')?.addEventListener('click', event => {
+    const popup = window.open(event.currentTarget.href, 'care4all_sheet', 'popup,width=1280,height=850');
+    if (popup) { event.preventDefault(); popup.focus(); }
 });

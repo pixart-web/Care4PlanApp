@@ -4,7 +4,7 @@ declare(strict_types=1);
 function profiles_migrate(PDO $pdo): void
 {
     foreach (['carers' => ['birth_date'=>'TEXT NULL','hourly_rate_weekday'=>'REAL NULL','hourly_rate_special'=>'REAL NULL'],
-        'patients' => ['municipality'=>'TEXT NULL','client_special_rate'=>'REAL NULL'],
+        'patients' => ['house_key'=>'TEXT NULL','municipality'=>'TEXT NULL','client_special_rate'=>'REAL NULL'],
         'services' => ['hourly_rate_special'=>'REAL NULL','client_rate_snapshot'=>'REAL NULL','client_special_snapshot'=>'REAL NULL','series_key'=>'TEXT NULL']] as $table=>$columns) {
         foreach ($columns as $column=>$definition) ensure_column($pdo,$table,$column,$definition);
     }
@@ -95,6 +95,10 @@ function profile_extra_values(string $action,array $data): array
         $municipality=$data['municipality']??'';
         if ($municipality!=='' && !in_array($municipality,scheduling_municipalities(),true)) throw new InvalidArgumentException('Selecione um concelho válido.');
         $values['municipality']=$municipality;
+        if (isset($data['house_key'])) {
+            if (!in_array($data['house_key'], ['', 'Sim', 'Não'], true)) throw new InvalidArgumentException('Indique se existe chave.');
+            $values['house_key'] = $data['house_key'];
+        }
     }
     return $values;
 }

@@ -15,6 +15,12 @@ if ($action) {
     handle_action($action);
 }
 
+if ($page === 'client-statement') {
+    require_role(['ADMIN']);
+    require __DIR__.'/views/client-statement.php';
+    exit;
+}
+
 if ($page === 'photo') profile_photo_endpoint();
 
 if ($page === 'api.events') {
@@ -97,6 +103,23 @@ function dispatch_action(PDO $pdo, string $action): void
     // Keep administrator validation and its write in the same SQLite snapshot.
     if (in_array($action, ['save_user', 'delete_user'], true)) $pdo->beginTransaction();
     validate_action($pdo, $action, $user);
+    if ($action === 'change_password') {
+        $current = (string)($_POST['current_password'] ?? '');
+        $new = (string)($_POST['new_password'] ?? '');
+        $query = $pdo->prepare('SELECT password FROM users WHERE id=?');
+        $query->execute([$user['id']]);
+        $hash = $query->fetchColumn();
+        if (!password_verify($current, $hash)) reject_action('A palavra-passe atual está incorreta.', 'profile');
+        if (!valid_new_password($new) || $new !== ($_POST['confirm_password'] ?? '')) {
+            reject_action('Confirme a nova palavra-passe com pelo menos 12 caracteres.', 'profile');
+        }
+        $change = $pdo->prepare('UPDATE users SET password=?, updated_at=? WHERE id=? AND password=?');
+        $change->execute([password_hash($new, PASSWORD_DEFAULT), now(), $user['id'], $hash]);
+        if (!$change->rowCount()) reject_action('A palavra-passe foi alterada. Tente novamente.', 'profile');
+        session_regenerate_id(true);
+        $_SESSION['flash'] = 'Palavra-passe alterada.';
+        redirect('profile');
+    }
     $profileExtra = []; $profilePhoto = null;
     if (in_array($action, ['save_patient','save_carer','save_profile'], true)) {
         try {
@@ -279,13 +302,17 @@ function dispatch_action(PDO $pdo, string $action): void
         require_role($operational);
         try {
             $plan = scheduling_plan($pdo, $_POST);
-            if (($_POST['recurrence_mode'] ?? 'none') !== 'none' || ($_POST['edit_series'] ?? '') === '1' || ($_POST['extra_times'] ?? '') === '1' || ($_POST['planning_mode'] ?? '') === 'copy_month') {
+            if (($_POST['recurrence_mode'] ?? 'none') !== 'none' || in_array($_POST['edit_series'] ?? '', ['1','future'], true) || ($_POST['extra_times'] ?? '') === '1' || ($_POST['planning_mode'] ?? '') === 'copy_month') {
                 $preview = $_SESSION['service_previews'][$_POST['preview_token'] ?? ''] ?? null;
                 if (!$preview || $preview['expires'] < time() || !hash_equals($preview['hash'], hash('sha256', json_encode($plan, JSON_THROW_ON_ERROR)))) {
                     reject_action('Pré-visualize as escalas antes de guardar. A seleção foi alterada ou expirou.', 'scales');
                 }
             }
             $result = scheduling_commit($pdo, $_POST);
+            if (!empty($result['shared_visits'])) {
+                require __DIR__.'/views/confirm-shared.php';
+                exit;
+            }
             if (!$result['valid']) reject_action('Existem escalas em conflito. Pré-visualize e corrija a seleção.', 'scales');
             $_SESSION['flash'] = count($result['service_ids']) . ' escala(s) guardada(s). ' . count($result['conflicts']) . ' conflito(s) ignorado(s).';
         } catch (InvalidArgumentException $error) {
@@ -296,19 +323,24 @@ function dispatch_action(PDO $pdo, string $action): void
         exit;
     }
 
-    if ($action === 'cancel_service') {
+    if (in_array($action, ['cancel_service', 'delete_service'], true)) {
         require_role($operational);
         $pdo->beginTransaction();
-        $stmt = $pdo->prepare("UPDATE services SET status = 'CANCELLED', updated_at = ? WHERE id = ?");
-        $stmt->execute([now(), (int) $_POST['id']]);
-        if ($stmt->rowCount() > 0) audit_event($pdo, $action, (int) $_POST['id']);
+        $lookup = $pdo->prepare('SELECT * FROM services WHERE id = ?');
+        $lookup->execute([(int) $_POST['id']]);
+        $service = $lookup->fetch();
+        if ($service) {
+            $targets = [$service];
+            if (($_POST['future_series'] ?? '') === '1' && $service['status'] === 'SCHEDULED') {
+                $targets = array_filter(planning_series($pdo, $service), fn($row) => $row['starts_at'] >= $service['starts_at']);
+            }
+            $remove = $pdo->prepare('DELETE FROM services WHERE id = ?');
+            foreach ($targets as $target) {
+                $remove->execute([$target['id']]);
+                audit_event($pdo, $action, (int)$target['id']);
+            }
+        }
         $pdo->commit();
-        redirect('scales');
-    }
-
-    if ($action === 'delete_service') {
-        require_role($operational);
-        $pdo->prepare('DELETE FROM services WHERE id = ?')->execute([(int) $_POST['id']]);
         redirect('scales');
     }
 

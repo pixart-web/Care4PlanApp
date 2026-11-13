@@ -76,3 +76,27 @@ test('Reassigning a service uses the new client prices',function()use($pdo,$feat
         same(55.0,(float)$plan['client_rate_snapshot']);same(75.0,(float)$plan['client_special_snapshot']);
     }finally{$pdo->rollBack();}
 });
+
+$pdo->prepare('INSERT INTO carers(name,phone,color_hex,created_at,updated_at) VALUES(?,?,?,?,?)')
+    ->execute(['Second fixture carer','000000000','#456789',now(),now()]);
+test('An additional carer requires confirmation and a cancelled slot can be reused',function()use($pdo,$featureData,$carer):void{
+    $other=(int)$pdo->query('SELECT id FROM carers WHERE id!='.(int)$carer.' LIMIT 1')->fetchColumn();
+    $slot=array_replace($featureData,['starts_at'=>'2036-04-01T09:00','ends_at'=>'2036-04-01T10:00','idempotency_key'=>bin2hex(random_bytes(16))]);
+    $first=scheduling_commit($pdo,$slot);check($first['valid']);
+    $slot['carer_id']=$other;$slot['idempotency_key']=bin2hex(random_bytes(16));
+    $warning=scheduling_commit($pdo,$slot);check(!$warning['valid']);same(1,count($warning['shared_visits']));
+    $slot['shared_confirmation']=$warning['shared_confirmation'];$second=scheduling_commit($pdo,$slot);check($second['valid']);
+    $pdo->prepare("UPDATE services SET status='CANCELLED' WHERE id=?")->execute([$second['service_ids'][0]]);
+    $slot['idempotency_key']=bin2hex(random_bytes(16));
+    $result=scheduling_commit($pdo,$slot);check($result['valid']);
+    same(0,(int)$pdo->query("SELECT COUNT(*) FROM services WHERE id=".(int)$second['service_ids'][0])->fetchColumn());
+    $slot['idempotency_key']=bin2hex(random_bytes(16));check(!scheduling_commit($pdo,$slot)['valid']);
+});
+test('Replacing a carer affects only selected and later series dates',function()use($pdo,$featureData,$carer):void{
+    $other=(int)$pdo->query('SELECT id FROM carers WHERE id!='.(int)$carer.' LIMIT 1')->fetchColumn();
+    $slot=array_replace($featureData,['starts_at'=>'2036-05-01T09:00','ends_at'=>'2036-05-01T10:00','recurrence_mode'=>'dates','recurrence_dates'=>['2036-05-03','2036-05-05'],'idempotency_key'=>bin2hex(random_bytes(16))]);
+    $created=scheduling_commit($pdo,$slot);check($created['valid']);
+    $change=array_replace($slot,['id'=>$created['service_ids'][1],'carer_id'=>$other,'starts_at'=>'2036-05-03T09:00','ends_at'=>'2036-05-03T10:00','edit_series'=>'future','recurrence_mode'=>'none','idempotency_key'=>bin2hex(random_bytes(16))]);
+    $result=scheduling_commit($pdo,$change);same(2,$result['updated_count']);
+    same((int)$carer,(int)$pdo->query('SELECT carer_id FROM services WHERE id='.(int)$created['service_ids'][0])->fetchColumn());
+});

@@ -38,18 +38,25 @@ function scheduling_plan(PDO $pdo,array $data): array
     if ($plan['id']) { $stmt=$pdo->prepare('SELECT * FROM services WHERE id=?'); $stmt->execute([$plan['id']]); $existing=$stmt->fetch(); }
     $prices=planning_prices($pdo,$plan+['hourly_rate_special'=>$data['hourly_rate_special']??null]+($existing && (int)$existing['patient_id']===$plan['patient_id']?array_intersect_key($existing,array_flip(['client_rate_snapshot','client_special_snapshot'])):[]));
     $plan+=$prices;
-    if (($data['edit_series']??'')==='1') {
+    if (in_array($data['edit_series'] ?? '', ['1','future'], true)) {
         $plan['skip_conflicts']=false;
         if (!$existing || $existing['status']!=='SCHEDULED') throw new InvalidArgumentException('Só pode alterar em conjunto serviços agendados da mesma série.');
         $start=$plan['occurrences'][0]['starts_at']; $end=$plan['occurrences'][0]['ends_at'];
         $offset=(int)scheduling_date(substr($start,0,10))->diff(scheduling_date(substr($end,0,10)))->format('%r%a');
         $plan['occurrences']=[];
         foreach (planning_series($pdo,$existing) as $member) {
+            $future = $data['edit_series'] === 'future';
+            if ($future && $member['starts_at'] < $existing['starts_at']) continue;
             $day=substr($member['starts_at'],0,10);
             $newStart=scheduling_local_time($day.' '.substr($start,11))->format('Y-m-d H:i:s');
             $newEnd=scheduling_local_time(scheduling_date($day)->modify('+'.$offset.' days')->format('Y-m-d').' '.substr($end,11))->format('Y-m-d H:i:s');
             // Only the hours propagate; each other day's client, carer, notes and prices stay intact.
             $entry=array_intersect_key($member,array_flip(['id','patient_id','carer_id','starts_at','ends_at','hourly_rate','hourly_rate_special','client_rate_snapshot','client_special_snapshot','observations','municipality'])); $entry['starts_at']=$newStart; $entry['ends_at']=$newEnd;
+            if ($future) {
+                $entry['carer_id'] = $plan['carer_id'];
+                $entry['hourly_rate'] = $plan['hourly_rate'];
+                $entry['hourly_rate_special'] = $plan['hourly_rate_special'];
+            }
             if ((int)$member['id']===$plan['id']) $entry=array_merge($entry,$plan,['starts_at'=>$start,'ends_at'=>$end]);
             unset($entry['occurrences']);
             $plan['occurrences'][]=$entry;
@@ -103,4 +110,27 @@ function planning_month(PDO $pdo,array $data): array
     if (!$entries) throw new InvalidArgumentException('Não existem serviços com correspondência no mês seguinte.');
     return ['id'=>0,'patient_id'=>0,'carer_id'=>0,'hourly_rate'=>0,'observations'=>'','municipality'=>'all','skip_conflicts'=>false,
         'occurrences'=>$entries,'unmatched'=>$unmatched,'allow_unmatched'=>($data['allow_unmatched']??'')==='1','source_month'=>$source,'target_month'=>$next->format('Y-m')];
+}
+
+/** Identify other carers attending this client during the proposed interval. */
+function planning_shared_visits(PDO $pdo, array $plan, array $conflicts): array
+{
+    $lookup = $pdo->prepare("SELECT s.id, s.starts_at, s.ends_at, c.name FROM services s
+        JOIN carers c ON c.id=s.carer_id WHERE s.patient_id=? AND s.carer_id!=?
+        AND s.status!='CANCELLED' AND s.starts_at<? AND s.ends_at>? ORDER BY s.id");
+    $visits = [];
+    $moving = [];
+    $skipped = array_column($conflicts, 'occurrence');
+    foreach ($plan['occurrences'] as $entry) {
+        $moving[(int)($entry['id'] ?? $plan['id'])] = true;
+    }
+    foreach ($plan['occurrences'] as $index=>$entry) {
+        if (in_array($index, $skipped, true)) continue;
+        $item = $entry + $plan;
+        $lookup->execute([$item['patient_id'], $item['carer_id'], $item['ends_at'], $item['starts_at']]);
+        foreach ($lookup as $row) {
+            if (!isset($moving[$row['id']])) $visits[$row['id']] = $row;
+        }
+    }
+    return array_values($visits);
 }

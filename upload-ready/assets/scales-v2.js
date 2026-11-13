@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let generation = 0;
   let approved = '';
   let submitting = false;
-  const needsPreview = () => mode.value !== 'none' || field('edit_series')?.value === '1' || field('extra_times')?.value === '1';
+  const needsPreview = () => mode.value !== 'none' || ['1','future'].includes(field('edit_series')?.value) || field('extra_times')?.value === '1';
   const snapshot = () => new URLSearchParams(new FormData(form)).toString();
   const formatDate = (value) => new Date(value.replace(' ', 'T')).toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: '2-digit' });
 

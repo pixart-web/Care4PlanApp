@@ -25,7 +25,7 @@ function events_api(): never
             FROM services
             JOIN patients ON patients.id = services.patient_id
             JOIN carers ON carers.id = services.carer_id
-            WHERE services.starts_at < ? AND services.ends_at > ?";
+            WHERE services.status != 'CANCELLED' AND services.starts_at < ? AND services.ends_at > ?";
     $zone = new DateTimeZone(APP_TIMEZONE);
     $params[] = $rangeEnd->setTimezone($zone)->format('Y-m-d H:i:s');
     $params[] = $rangeStart->setTimezone($zone)->format('Y-m-d H:i:s');

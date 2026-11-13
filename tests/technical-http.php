@@ -51,7 +51,7 @@ test('HTTP report and profile changes rollback if audit fails', function () use 
 });
 test('HTTP failed cancellation leaves neither mutation nor audit', function () use ($pdo,$service,&$admin): void {
     $count=(int)$pdo->query('SELECT COUNT(*) FROM audit_events')->fetchColumn();
-    $pdo->exec("CREATE TRIGGER fixture_cancel_failure BEFORE UPDATE ON services WHEN NEW.status='CANCELLED' BEGIN SELECT RAISE(ABORT,'fixture'); END");
+    $pdo->exec("CREATE TRIGGER fixture_cancel_failure BEFORE DELETE ON services BEGIN SELECT RAISE(ABORT,'fixture'); END");
     try {
         $before=snapshot($pdo);
         same(500,http_request('/index.php',$admin['cookies'],['_csrf'=>$admin['csrf'],'action'=>'cancel_service','id'=>$service])['status']);

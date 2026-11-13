@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
       field('hourly_rate').add(new Option(money(data.hourlyRate) + '/h', data.hourlyRate));
       field('hourly_rate').value = data.hourlyRate;
     }
+    document.querySelector('[name=future_series]').value = '0';
     document.querySelectorAll('.selected-service-id').forEach((input) => { input.value = data.serviceId; });
     document.getElementById('service-form-title').textContent = 'Editar escala';
     document.getElementById('service-submit').textContent = 'Guardar alterações';

@@ -161,11 +161,11 @@ function scheduling_check(PDO $pdo, array $plan): array
     $accepted = [];
     $ignoreIds = array_values(array_unique(array_filter(array_map(fn($entry)=>(int)($entry['id']??$plan['id']),$plan['occurrences']))));
     $ignoreSql = $ignoreIds ? ' AND id NOT IN ('.implode(',',array_fill(0,count($ignoreIds),'?')).')' : '';
-    $query = $pdo->prepare("SELECT id, starts_at, ends_at, status FROM services WHERE carer_id = ?".$ignoreSql." AND ((status != 'CANCELLED' AND starts_at < ? AND ends_at > ?) OR starts_at = ?) ORDER BY starts_at");
+    $query = $pdo->prepare("SELECT id, starts_at, ends_at, status FROM services WHERE carer_id = ?".$ignoreSql." AND status != 'CANCELLED' AND starts_at < ? AND ends_at > ? ORDER BY starts_at");
     foreach ($plan['occurrences'] as $index => $occurrence) {
         $item=array_merge($plan,$occurrence);
         $before=count($conflicts);
-        $query->execute([$item['carer_id'],...$ignoreIds,$item['ends_at'],$item['starts_at'],$item['starts_at']]);
+        $query->execute([$item['carer_id'],...$ignoreIds,$item['ends_at'],$item['starts_at']]);
         foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $existing) {
             $conflicts[]=['occurrence'=>$index,'starts_at'=>$item['starts_at'],'service_id'=>(int)$existing['id'],'existing_starts_at'=>$existing['starts_at'],'existing_ends_at'=>$existing['ends_at'],'existing_status'=>$existing['status'],'type'=>$existing['status']==='CANCELLED'?'cancelled_duplicate':'overlap'];
         }
@@ -218,6 +218,14 @@ function scheduling_commit(PDO $pdo, array $data): array
             return $result;
         }
         $result = scheduling_check($pdo, $plan);
+        if ($result['valid']) {
+            $overlaps = planning_shared_visits($pdo, $plan, $result['conflicts']);
+            $confirmation = hash('sha256', json_encode([$plan, $overlaps], JSON_THROW_ON_ERROR));
+            if ($overlaps && !hash_equals($confirmation, (string)($data['shared_confirmation'] ?? ''))) {
+                $pdo->exec('ROLLBACK');
+                return array_merge($result, ['valid'=>false, 'shared_visits'=>$overlaps, 'shared_confirmation'=>$confirmation]);
+            }
+        }
         if (! $result['valid']) {
             $pdo->exec('ROLLBACK');
             return $result;
@@ -230,6 +238,9 @@ function scheduling_commit(PDO $pdo, array $data): array
                 continue;
             }
             $item=array_merge($plan,$occurrence);
+            // Older installations reserved even cancelled slots through a UNIQUE constraint.
+            $release = $pdo->prepare("DELETE FROM services WHERE carer_id=? AND starts_at=? AND status='CANCELLED' AND id!=?");
+            $release->execute([$item['carer_id'], $item['starts_at'], $item['id']]);
             $values=[$item['patient_id'],$item['carer_id'],$item['starts_at'],$item['ends_at'],$item['hourly_rate'],$item['observations'],$item['municipality'],$timestamp];
             if ($item['id']) {
                 $pdo->prepare('UPDATE services SET patient_id=?,carer_id=?,starts_at=?,ends_at=?,hourly_rate=?,observations=?,municipality=?,updated_at=?,hourly_rate_special=?,client_rate_snapshot=?,client_special_snapshot=? WHERE id=?')->execute([...$values,$item['hourly_rate_special']??null,$item['client_rate_snapshot']??null,$item['client_special_snapshot']??null,$item['id']]);
