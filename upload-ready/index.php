@@ -263,6 +263,8 @@ function dispatch_action(PDO $pdo, string $action): void
             record_entity_movement($pdo, 'PATIENT', $data['name'], 'IN');
         }
         profile_extra_save($pdo, 'patients', $id, $profileExtra);
+        // The client's calendar follows the client's municipality.
+        scheduling_sync_patient_municipality($pdo, $id);
         profile_photo_save($pdo, 'patient', $id, $profilePhoto);
         audit_event($pdo, $action, $id);
         $pdo->commit();

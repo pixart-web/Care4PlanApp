@@ -14,6 +14,26 @@ function scheduling_municipalities(): array
     return is_array($configured) && $configured ? array_values(array_filter($configured, fn ($value) => is_string($value) && trim($value) !== '')) : ['Portimão', 'Lagos', 'Lagoa', 'Albufeira', 'Silves'];
 }
 
+/** The client's municipality is authoritative for all of that client's services; '' when the client has none. */
+function scheduling_client_municipality(PDO $pdo, int $patientId): string
+{
+    $stmt = $pdo->prepare("SELECT TRIM(COALESCE(municipality, '')) FROM patients WHERE id = ?");
+    $stmt->execute([$patientId]);
+    return (string) $stmt->fetchColumn();
+}
+
+/** Move every service of the client to the client's municipality. Caller owns the transaction. */
+function scheduling_sync_patient_municipality(PDO $pdo, int $patientId): int
+{
+    $place = scheduling_client_municipality($pdo, $patientId);
+    if ($place === '') {
+        return 0;
+    }
+    $stmt = $pdo->prepare("UPDATE services SET municipality = ? WHERE patient_id = ? AND COALESCE(municipality, '') != ?");
+    $stmt->execute([$place, $patientId, $place]);
+    return $stmt->rowCount();
+}
+
 /** Resolve wall-clock input without PHP's silent DST normalization. */
 function scheduling_local_time(string $value): DateTimeImmutable
 {
@@ -60,7 +80,10 @@ function scheduling_base_plan(PDO $pdo, array $data): array
     if ($id === false) {
         throw new InvalidArgumentException('Identificador inválido.');
     }
-    $municipality = trim((string) ($data['municipality'] ?? ''));
+    $municipality = scheduling_client_municipality($pdo, (int) $data['patient_id']);
+    if ($municipality === '') {
+        $municipality = trim((string) ($data['municipality'] ?? ''));
+    }
     if (! in_array($municipality, scheduling_municipalities(), true)) {
         throw new InvalidArgumentException('Selecione o concelho.');
     }
@@ -238,6 +261,10 @@ function scheduling_commit(PDO $pdo, array $data): array
                 continue;
             }
             $item=array_merge($plan,$occurrence);
+            $clientPlace = scheduling_client_municipality($pdo, (int) $item['patient_id']);
+            if ($clientPlace !== '') {
+                $item['municipality'] = $clientPlace;
+            }
             // Older installations reserved even cancelled slots through a UNIQUE constraint.
             $release = $pdo->prepare("DELETE FROM services WHERE carer_id=? AND starts_at=? AND status='CANCELLED' AND id!=?");
             $release->execute([$item['carer_id'], $item['starts_at'], $item['id']]);

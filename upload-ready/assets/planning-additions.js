@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     field('patient_id').addEventListener('change',()=>{
       const place=field('patient_id').selectedOptions[0]?.dataset.municipality;
-      if(!field('id').value && place)field('municipality').value=place;
+      if(place)field('municipality').value=place;
     });
     const params=new URLSearchParams(location.search);
     if(params.get('new_service')==='1' && params.get('patient_id')) {

@@ -16,6 +16,14 @@ function profiles_migrate(PDO $pdo): void
     $version=$pdo->prepare('SELECT 1 FROM schema_migrations WHERE version=?'); $version->execute(['v3-client-planning']);
     $applied=(bool)$version->fetchColumn(); $version->closeCursor();
     if(!$applied)$pdo->prepare('INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES(?,?)')->execute(['v3-client-planning',now()]);
+    // One-off: align existing services with their client's municipality (client is authoritative).
+    $version->execute(['v4-service-client-municipality']);
+    $applied=(bool)$version->fetchColumn(); $version->closeCursor();
+    if(!$applied){
+        $pdo->exec("UPDATE services SET municipality=(SELECT TRIM(p.municipality) FROM patients p WHERE p.id=services.patient_id)
+            WHERE EXISTS(SELECT 1 FROM patients p WHERE p.id=services.patient_id AND TRIM(COALESCE(p.municipality,''))!='' AND TRIM(p.municipality)!=COALESCE(services.municipality,''))");
+        $pdo->prepare('INSERT OR IGNORE INTO schema_migrations(version,applied_at) VALUES(?,?)')->execute(['v4-service-client-municipality',now()]);
+    }
 }
 
 function profile_photo_upload(array $file): ?array
