@@ -88,6 +88,8 @@ test('An additional carer requires confirmation and a cancelled slot can be reus
     $slot['shared_confirmation']=$warning['shared_confirmation'];$second=scheduling_commit($pdo,$slot);check($second['valid']);
     $pdo->prepare("UPDATE services SET status='CANCELLED' WHERE id=?")->execute([$second['service_ids'][0]]);
     $slot['idempotency_key']=bin2hex(random_bytes(16));
+    $fresh=scheduling_commit($pdo,$slot);check(!$fresh['valid']);
+    $slot['shared_confirmation']=$fresh['shared_confirmation'];
     $result=scheduling_commit($pdo,$slot);check($result['valid']);
     same(0,(int)$pdo->query("SELECT COUNT(*) FROM services WHERE id=".(int)$second['service_ids'][0])->fetchColumn());
     $slot['idempotency_key']=bin2hex(random_bytes(16));check(!scheduling_commit($pdo,$slot)['valid']);
@@ -99,4 +101,18 @@ test('Replacing a carer affects only selected and later series dates',function()
     $change=array_replace($slot,['id'=>$created['service_ids'][1],'carer_id'=>$other,'starts_at'=>'2036-05-03T09:00','ends_at'=>'2036-05-03T10:00','edit_series'=>'future','recurrence_mode'=>'none','idempotency_key'=>bin2hex(random_bytes(16))]);
     $result=scheduling_commit($pdo,$change);same(2,$result['updated_count']);
     same((int)$carer,(int)$pdo->query('SELECT carer_id FROM services WHERE id='.(int)$created['service_ids'][0])->fetchColumn());
+});
+
+test('Preview detects a changed skip set inside the write transaction',function()use($pdo,$featureData):void{
+    $slot=array_replace($featureData,['starts_at'=>'2037-04-01T09:00','ends_at'=>'2037-04-01T10:00','idempotency_key'=>bin2hex(random_bytes(16))]);
+    $batch=array_replace($slot,['idempotency_key'=>bin2hex(random_bytes(16)),'skip_conflicts'=>'1','recurrence_mode'=>'dates','recurrence_dates'=>['2037-04-02']]);
+    check(scheduling_preview($pdo,$batch,$hash)['valid']);
+    check(scheduling_commit($pdo,$slot)['valid']);
+    $before=snapshot($pdo);
+    rejects(fn()=>scheduling_commit($pdo,$batch,$hash));
+    same($before,snapshot($pdo));
+});
+test('Rounding of weekday and special components is preserved',function():void{
+    $parts=service_rate_parts(['starts_at'=>'2026-11-13 23:45','ends_at'=>'2026-11-14 00:15','hourly_rate'=>10.02]);
+    same(['weekday'=>2.51,'special'=>2.51],$parts);
 });

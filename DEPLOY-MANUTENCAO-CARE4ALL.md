@@ -1,0 +1,10 @@
+# Publicação e rollback da manutenção
+
+Referência de reversão: commit 94f3832. Aplicação standalone em cPanel, PHP 8.3+ conforme o guia do projeto, PDO e pdo_sqlite. A ferramenta opcional de cópia usa a extensão sqlite3. A validação local foi feita com PHP 8.5; a versão e a configuração Apache do alojamento devem ser conferidas em staging.
+
+1. Antes de publicar, guardar fora da raiz pública os três ficheiros atuais e obter uma cópia consistente da base através do backup do alojamento ou da ferramenta maintenance/backup.php. Para utilização via tarefa cPanel, indicar caminhos absolutos de origem e destino privado novo. Verificar o resultado integrity_check=ok. Uma cópia isolada do ficheiro SQLite durante escritas WAL pode omitir dados.
+2. Num subdomínio de ensaio com dados fictícios, carregar lib/scheduling.php e lib/security.php, depois index.php. Respeitar a estrutura da instalação. A atualização em produção, após aprovação, deve usar estes três ficheiros em conjunto durante uma janela sem pedidos de gravação. Não enviar a pasta data, config-local.php, testes ou ferramentas locais.
+3. Confirmar login/logout, um planeamento com pré-visualização, confirmação partilhada e extrato imprimível. Reabrir propostas iniciadas antes da atualização. No Apache de ensaio verificar que a pasta data, ficheiros SQLite e respetivos ficheiros auxiliares não são servidos. PHP -S não aplica .htaccess.
+4. Se necessário, restituir os três ficheiros guardados da mesma versão e repetir a verificação. Não há migração de esquema neste PR. A reversão de código conserva operações legítimas entretanto gravadas. Um restauro de dados é uma operação separada: ensaiar em diretório privado novo, com a aplicação parada durante a troca e sem misturar WAL/SHM de outra base; verificar integrity_check, foreign_key_check, registos e relações antes de considerar qualquer substituição real.
+
+O teste de restauro copia o backup fictício para um novo caminho, abre-o, reaplica as migrações repetíveis e compara os dados de negócio, lotes, fotografias e auditoria. Nenhuma destas operações requer Node, Composer, SSH ou um serviço residente em produção.

@@ -62,11 +62,14 @@ function dispatch_action(PDO $pdo, string $action): void
             ? password_verify($password, $user['password'])
             : password_verify($password, '$2y$12$Gn69FfU77v5t4TnHSZR5k.5R0107Jwap/QJSGg09C42DcyS.iobzW');
         if ($user && $passwordMatches) {
+            $pdo->beginTransaction();
             if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
                 $pdo->prepare('UPDATE users SET password = ?, updated_at = ? WHERE id = ?')
                     ->execute([password_hash($password, PASSWORD_DEFAULT), now(), $user['id']]);
             }
             login_succeeded($pdo, $login);
+            audit_event($pdo, 'login', null, (int)$user['id']);
+            $pdo->commit();
             session_regenerate_id(true);
             $authenticatedAt = time();
             $_SESSION = [
@@ -76,7 +79,6 @@ function dispatch_action(PDO $pdo, string $action): void
                 '_auth_rotated_at' => $authenticatedAt,
             ];
             $_SESSION['user_id'] = $user['id'];
-            audit_event($pdo, 'login');
             redirect('dashboard');
         }
         login_failed($pdo, $login);
@@ -285,12 +287,11 @@ function dispatch_action(PDO $pdo, string $action): void
     }
     if ($action === 'preview_service') {
         require_role($operational);
-        $result = scheduling_preview($pdo, $_POST);
+        $result = scheduling_preview($pdo, $_POST, $proposalHash);
         if (!$result['errors']) {
             $token = bin2hex(random_bytes(24));
-            $plan = scheduling_plan($pdo, $_POST);
             $_SESSION['service_previews'] = array_slice($_SESSION['service_previews'] ?? [], -9, null, true);
-            $_SESSION['service_previews'][$token] = ['hash' => hash('sha256', json_encode($plan, JSON_THROW_ON_ERROR)), 'expires' => time() + 1800];
+            $_SESSION['service_previews'][$token] = ['hash' => $proposalHash, 'expires' => time() + 1800];
             $result['preview_token'] = $token;
         }
         header('Content-Type: application/json; charset=utf-8');
@@ -301,14 +302,14 @@ function dispatch_action(PDO $pdo, string $action): void
     if ($action === 'save_service') {
         require_role($operational);
         try {
-            $plan = scheduling_plan($pdo, $_POST);
+            $preview = null;
             if (($_POST['recurrence_mode'] ?? 'none') !== 'none' || in_array($_POST['edit_series'] ?? '', ['1','future'], true) || ($_POST['extra_times'] ?? '') === '1' || ($_POST['planning_mode'] ?? '') === 'copy_month') {
                 $preview = $_SESSION['service_previews'][$_POST['preview_token'] ?? ''] ?? null;
-                if (!$preview || $preview['expires'] < time() || !hash_equals($preview['hash'], hash('sha256', json_encode($plan, JSON_THROW_ON_ERROR)))) {
+                if (!$preview || $preview['expires'] < time()) {
                     reject_action('Pré-visualize as escalas antes de guardar. A seleção foi alterada ou expirou.', 'scales');
                 }
             }
-            $result = scheduling_commit($pdo, $_POST);
+            $result = scheduling_commit($pdo, $_POST, $preview['hash'] ?? null);
             if (!empty($result['shared_visits'])) {
                 require __DIR__.'/views/confirm-shared.php';
                 exit;
@@ -318,8 +319,9 @@ function dispatch_action(PDO $pdo, string $action): void
         } catch (InvalidArgumentException $error) {
             reject_action($error->getMessage(), 'scales');
         }
-        $_SESSION['scales_municipality'] = $plan['municipality'];
-        header('Location: index.php?page=scales&municipality=' . urlencode($plan['municipality']) . '&scale_date=' . urlencode(substr($plan['occurrences'][0]['starts_at'], 0, 10)));
+        $municipality = ($_POST['planning_mode'] ?? '') === 'copy_month' ? 'all' : trim($_POST['municipality']);
+        $_SESSION['scales_municipality'] = $municipality;
+        header('Location: index.php?page=scales&municipality=' . urlencode($municipality) . '&scale_date=' . urlencode(substr($result['occurrences'][0]['starts_at'], 0, 10)));
         exit;
     }
 
