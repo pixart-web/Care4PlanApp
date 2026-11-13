@@ -25,7 +25,6 @@ function patient_form_fields(array $patients = []): void
     </div></div>
 
     <label class="field"><span class="label">Concelho</span><select class="input" name="municipality"><option value="">Sem concelho</option><?php foreach (scheduling_municipalities() as $place): ?><option><?= e($place) ?></option><?php endforeach; ?></select></label>
-    <label class="field"><span class="label">Valor/hora — fins de semana e feriados</span><input class="input" name="client_special_rate" type="number" min="0" max="10000" step="0.01"><span class="subtitle">Em branco: aplica-se o valor dos dias úteis.</span></label>
     <div class="form-section"><h3>Morada</h3><div class="form-grid">
         <label class="field form-span-2"><span class="label">Morada</span><input class="input" name="address" required></label>
         <label class="field"><span class="label">Código postal</span><input class="input" name="postal_code"></label>
@@ -69,8 +68,9 @@ function patient_form_fields(array $patients = []): void
         <label class="field"><span class="label">Estado</span><select class="input" name="status"><option>Ativo</option><option>Suspenso</option><option>Terminado</option></select></label>
         <label class="field"><span class="label">Data de início do apoio</span><input class="input" name="support_start_date" type="date"></label>
         <label class="field"><span class="label">Horas contratadas</span><input class="input" name="contracted_hours"></label>
-        <label class="field"><span class="label">Valor/hora — dias úteis</span><input class="input" name="client_hourly_rate" type="number" min="0" step="0.01"></label>
         <label class="field"><span class="label">Tipo de serviço</span><select class="input" name="service_type"><option value="">Selecionar</option><option>Regular</option><option>Pontual</option><option>Noite</option><option>Fim de semana</option><option>24h</option></select></label>
+        <label class="field"><span class="label">Valor/hora — dias úteis</span><input class="input" name="client_hourly_rate" type="number" min="0" step="0.01"><span class="subtitle">Valor base, de segunda a sexta.</span></label>
+        <label class="field"><span class="label">Valor/hora — fins de semana e feriados</span><input class="input" name="client_special_rate" type="number" min="0" max="10000" step="0.01"><span class="subtitle">Em branco: aplica-se o valor dos dias úteis.</span></label>
         <label class="field form-span-2"><span class="label">Observações administrativas</span><textarea class="input textarea" name="admin_notes" rows="3"></textarea></label>
         <label class="field form-span-2"><span class="label">Observações gerais</span><textarea class="input textarea" name="observations" rows="4"></textarea></label>
     </div></div>
