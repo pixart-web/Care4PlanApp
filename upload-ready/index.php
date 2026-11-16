@@ -265,6 +265,8 @@ function dispatch_action(PDO $pdo, string $action): void
         profile_extra_save($pdo, 'patients', $id, $profileExtra);
         // The client's calendar follows the client's municipality.
         scheduling_sync_patient_municipality($pdo, $id);
+        // Sums always follow the tariffs filled in on the client's profile.
+        client_sync_service_rates($pdo, $id);
         profile_photo_save($pdo, 'patient', $id, $profilePhoto);
         audit_event($pdo, $action, $id);
         $pdo->commit();

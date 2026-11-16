@@ -8,8 +8,10 @@ function planning_prices(PDO $pdo,array $item): array
     $special=$item['hourly_rate_special']??$carer['hourly_rate_special']??$item['hourly_rate'];
     if ($special==='') $special=$item['hourly_rate'];
     if (!is_numeric($special) || !is_finite((float)$special) || $special<0 || $special>10000) throw new InvalidArgumentException('Introduza uma tarifa de fins de semana e feriados válida.');
-    return ['hourly_rate_special'=>(float)$special,'client_rate_snapshot'=>$item['client_rate_snapshot']??(float)($client['client_hourly_rate']??0),
-        'client_special_snapshot'=>$item['client_special_snapshot']??(float)($client['client_special_rate']??$client['client_hourly_rate']??0)];
+    // NULL (not 0) when the client has no tariff yet, so the client's current tariff applies once it is filled in.
+    $regular=$item['client_rate_snapshot']??(isset($client['client_hourly_rate'])?(float)$client['client_hourly_rate']:null);
+    $clientSpecial=$item['client_special_snapshot']??(isset($client['client_special_rate'])?(float)$client['client_special_rate']:null);
+    return ['hourly_rate_special'=>(float)$special,'client_rate_snapshot'=>$regular,'client_special_snapshot'=>$clientSpecial];
 }
 
 function planning_series(PDO $pdo,array $service): array
@@ -104,7 +106,7 @@ function planning_month(PDO $pdo,array $data): array
         $entry=$row; $entry['id']=0;
         $entry['starts_at']=scheduling_local_time($target->format('Y-m-d').' '.$start->format('H:i:s'))->format('Y-m-d H:i:s');
         $entry['ends_at']=scheduling_local_time($target->modify('+'.$days.' days')->format('Y-m-d').' '.$end->format('H:i:s'))->format('Y-m-d H:i:s');
-        $entry['family']=$row['series_key']?:'source-'.$row['id']; unset($entry['series_key']);
+        $entry['family']=$row['series_key']?:'source-'.$row['id']; unset($entry['series_key'], $entry['client_rate_snapshot'], $entry['client_special_snapshot']);
         $entry=array_replace($entry,planning_prices($pdo,$entry)); $entries[]=$entry;
     }
     if (!$entries) throw new InvalidArgumentException('Não existem serviços com correspondência no mês seguinte.');

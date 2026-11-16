@@ -51,7 +51,27 @@ function service_rate_amount(array $service, string $regular='hourly_rate', stri
 
 function client_service_amount(array $service, array $client): float
 {
-    $service['income_regular'] = $service['client_rate_snapshot'] ?? $client['client_hourly_rate'] ?? 0;
-    $service['income_special'] = $service['client_special_snapshot'] ?? $service['income_regular'];
+    $hasSnapshot = $service['client_rate_snapshot'] !== null && $service['client_rate_snapshot'] !== '';
+    $service['income_regular'] = $hasSnapshot ? $service['client_rate_snapshot'] : ($client['client_hourly_rate'] ?? 0);
+    // Blank weekend/holiday tariff means the weekday tariff applies.
+    $service['income_special'] = $service['client_special_snapshot']
+        ?? ($hasSnapshot ? null : ($client['client_special_rate'] ?? null))
+        ?? $service['income_regular'];
     return service_rate_amount($service, 'income_regular', 'income_special');
+}
+
+/** Apply the client's current tariffs to all of that client's non-cancelled services. Caller owns the transaction. */
+function client_sync_service_rates(PDO $pdo, int $patientId): int
+{
+    $stmt = $pdo->prepare('SELECT client_hourly_rate, client_special_rate FROM patients WHERE id = ?');
+    $stmt->execute([$patientId]);
+    $client = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (! $client) {
+        return 0;
+    }
+    $regular = $client['client_hourly_rate'] === null ? null : (float) $client['client_hourly_rate'];
+    $special = $client['client_special_rate'] === null ? null : (float) $client['client_special_rate'];
+    $update = $pdo->prepare("UPDATE services SET client_rate_snapshot = ?, client_special_snapshot = ? WHERE patient_id = ? AND status != 'CANCELLED'");
+    $update->execute([$regular, $special, $patientId]);
+    return $update->rowCount();
 }

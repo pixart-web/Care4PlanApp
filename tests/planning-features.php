@@ -67,6 +67,23 @@ test('Service price snapshots survive changes to profile tariffs',function()use(
         same(20.0,(float)$row['client_rate_snapshot']);same(20.0,(float)$row['hourly_rate_special']);
     }finally{$pdo->rollBack();}
 });
+test('Client sums use the profile tariffs when the service has no snapshot',function():void{
+    $client=['client_hourly_rate'=>12.0,'client_special_rate'=>13.0];
+    // Tuesday 1h and Saturday 2h, both scheduled before the client had tariffs.
+    same(12.0,client_service_amount(['starts_at'=>'2026-11-17 14:00:00','ends_at'=>'2026-11-17 15:00:00','client_rate_snapshot'=>null,'client_special_snapshot'=>null],$client));
+    same(26.0,client_service_amount(['starts_at'=>'2026-11-21 10:00:00','ends_at'=>'2026-11-21 12:00:00','client_rate_snapshot'=>null,'client_special_snapshot'=>null],$client));
+    // A weekday snapshot with a blank weekend snapshot keeps charging the weekday tariff.
+    same(24.0,client_service_amount(['starts_at'=>'2026-11-21 10:00:00','ends_at'=>'2026-11-21 12:00:00','client_rate_snapshot'=>12.0,'client_special_snapshot'=>null],$client));
+});
+test('Saving the client profile re-prices that client\'s services',function()use($pdo,$patient):void{
+    $pdo->beginTransaction();try{
+        $pdo->prepare('UPDATE services SET client_rate_snapshot=0, client_special_snapshot=0 WHERE patient_id=?')->execute([$patient]);
+        $pdo->prepare('UPDATE patients SET client_hourly_rate=12,client_special_rate=13 WHERE id=?')->execute([$patient]);
+        client_sync_service_rates($pdo,$patient);
+        $row=$pdo->query("SELECT * FROM services WHERE starts_at='2032-03-02 14:00:00'")->fetch();
+        same(12.0,(float)$row['client_rate_snapshot']);same(13.0,(float)$row['client_special_snapshot']);
+    }finally{$pdo->rollBack();}
+});
 test('Reassigning a service uses the new client prices',function()use($pdo,$featureData,$patient):void{
     $pdo->beginTransaction();try{
         $other=(int)$pdo->query('SELECT id FROM patients WHERE id!='.(int)$patient.' LIMIT 1')->fetchColumn();
