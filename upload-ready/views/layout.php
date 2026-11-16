@@ -6,7 +6,7 @@ unset($_SESSION['flash'], $_SESSION['flash_error']);
 
 $isCarer = $user && $user['role'] === 'CARER';
 $nav = $isCarer
-    ? ['dashboard' => 'Dashboard', 'scales' => 'Escalas', 'pocket' => 'Pocket', 'profile' => 'Perfil', 'reports' => 'Relatórios']
+    ? ['dashboard' => 'Dashboard', 'scales' => 'Escalas', 'my-clients' => 'Os meus clientes', 'pocket' => 'Pocket', 'profile' => 'Perfil', 'reports' => 'Relatórios']
     : ['dashboard' => 'Dashboard', 'scales' => 'Escalas', 'carers' => 'Cuidadoras', 'patients' => 'Clientes', 'reports' => 'Relatórios', 'settings' => 'Configurações', 'profile' => 'Perfil'];
 if ($user && $user['role'] === 'ADMIN') {
     $nav = array_slice($nav, 0, 4, true) + ['users' => 'Utilizadores', 'finances' => 'Finanças'] + array_slice($nav, 4, null, true);
@@ -14,7 +14,7 @@ if ($user && $user['role'] === 'ADMIN') {
 $bottom = $isCarer
     ? ['dashboard' => 'Início', 'scales' => 'Escalas', 'pocket' => 'Pocket', 'profile' => 'Perfil']
     : ['dashboard' => 'Início', 'scales' => 'Escalas', 'carers' => 'Equipa', 'patients' => 'Clientes'];
-$navIcons = ['dashboard' => 'layout-dashboard', 'scales' => 'calendar-days', 'pocket' => 'wallet', 'profile' => 'user-round', 'reports' => 'notebook-pen', 'carers' => 'users-round', 'patients' => 'heart-handshake', 'settings' => 'settings-2', 'users' => 'contact-round', 'finances' => 'chart-no-axes-combined'];
+$navIcons = ['my-clients' => 'contact-round', 'dashboard' => 'layout-dashboard', 'scales' => 'calendar-days', 'pocket' => 'wallet', 'profile' => 'user-round', 'reports' => 'notebook-pen', 'carers' => 'users-round', 'patients' => 'heart-handshake', 'settings' => 'settings-2', 'users' => 'contact-round', 'finances' => 'chart-no-axes-combined'];
 $contextLabel = $nav[$active] ?? $title;
 $careMessages = [
     'O teu cuidado faz a diferença, mesmo nos gestos mais pequenos.',
@@ -101,7 +101,7 @@ $careIsDay = time() * 1000 >= $careSun[date('Y-m-d')][0] && time() * 1000 < $car
 
     <main class="main" id="main-content" tabindex="-1">
         <div class="workspace-head"><div class="workspace-context"><span><?= $isCarer ? 'Área da cuidadora' : 'Gestão de cuidados' ?></span><i data-lucide="chevron-right" aria-hidden="true"></i><strong><?= e($contextLabel) ?></strong></div><div class="care-day-widget" aria-label="Hora e previsão em Portimão">
-            <div class="care-clock"><span class="care-sky" data-care-sky aria-label="<?= $careIsDay ? 'Dia em Portimão' : 'Noite em Portimão' ?>"><i data-lucide="<?= $careIsDay ? 'sun' : 'moon' ?>" aria-hidden="true"></i></span><div><time data-care-clock datetime="<?= date('c') ?>"><?= date('H:i') ?></time><span data-care-date><?= date('d/m/Y') ?> · Lisboa</span></div></div>
+            <div class="care-clock"><span class="care-sky" data-care-sky aria-label="<?= $careIsDay ? 'Dia em Portimão' : 'Noite em Portimão' ?>"><i data-lucide="<?= $careIsDay ? 'sun' : 'moon' ?>" aria-hidden="true"></i></span><div><time data-care-clock datetime="<?= date('c') ?>"><?= date('H:i') ?></time><span data-care-date><?= date('d/m/Y') ?> · Faro</span></div></div>
             <details class="care-weather"><summary><i data-lucide="thermometer" aria-hidden="true"></i><span>Portimão · mín/máx <strong data-care-temperature>Ver previsão</strong></span></summary><div class="care-weather-panel"><strong>Temperatura prevista para hoje</strong><p data-care-forecast aria-live="polite">A carregar a previsão…</p><small>Mínima e máxima diárias, não temperatura atual.</small><a href="https://www.ipma.pt/pt/otempo/prev.localidade.hora/#Faro&Portim%C3%A3o" target="_blank" rel="noopener noreferrer">Fonte: IPMA</a><button class="btn btn-secondary" type="button" data-weather-retry>Atualizar previsão</button></div></details>
         </div></div>
         <?php if ($flash): ?><div class="alert alert-ok" role="status"><?= e($flash) ?></div><?php endif; ?>
@@ -125,7 +125,7 @@ $careIsDay = time() * 1000 >= $careSun[date('Y-m-d')][0] && time() * 1000 < $car
 </div>
 <script type="application/json" id="care-day-data"><?= json_encode(['messages' => $careMessages, 'index' => $messageIndex, 'sun' => $careSun], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 <script src="assets/app.js?v=20261116" defer></script>
-<script src="assets/care-day.js?v=20261116" defer></script>
+<script src="assets/care-day.js?v=20261117" defer></script>
 </body>
 </html>
 

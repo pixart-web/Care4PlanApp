@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/lib/events.php';
+require_once __DIR__ . '/lib/weather.php';
 
 verify_csrf();
 validate_request_shape();
@@ -25,6 +26,10 @@ if ($page === 'photo') profile_photo_endpoint();
 
 if ($page === 'api.events') {
     events_api();
+}
+
+if ($page === 'api.weather') {
+    weather_api();
 }
 
 route($page);
@@ -555,6 +560,7 @@ function route(string $page): void
 
     $map = [
         'scales' => 'scales.php',
+        'my-clients' => 'carer-patients.php',
         'carers' => 'carers.php',
         'patients' => 'patients.php',
         'users' => 'users.php',

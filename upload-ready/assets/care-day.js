@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const time = document.querySelector('[data-care-clock]');
     time.textContent = formattedTime;
     time.dateTime = now.toISOString();
-    document.querySelector('[data-care-date]').textContent = dateFormat.format(now) + ' · Lisboa';
+    document.querySelector('[data-care-date]').textContent = dateFormat.format(now) + ' · Faro';
     document.querySelectorAll('[data-care-greeting]').forEach(e => { e.textContent = hour >= 6 && hour < 12 ? 'Bom dia' : hour >= 12 && hour < 20 ? 'Boa tarde' : 'Boa noite'; });
     const sun = data.sun[currentDate];
     const daylight = sun ? now.getTime() >= sun[0] && now.getTime() < sun[1] : hour >= 7 && hour < 19;
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const temperature = document.querySelector('[data-care-temperature]');
   const forecast = document.querySelector('[data-care-forecast]');
   const retry = document.querySelector('[data-weather-retry]');
-  const cacheKey = 'care4all.ipma.portimao.v1';
+  const cacheKey = 'care4all.ipma.portimao.v2';
   let busy = false;
   function present(payload) {
     const today = payload?.data?.find(row => row.forecastDate === dayKey(new Date()));
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try { cached = JSON.parse(localStorage.getItem(cacheKey)); } catch { /* Storage may be unavailable in private browsing. */ }
       if (!force && cached && Date.now() - cached.savedAt >= 0 && Date.now() - cached.savedAt < 3600000 && present(cached.payload)) return;
       temperature.textContent = 'A consultar…';
-      const response = await fetch('https://api.ipma.pt/open-data/forecast/meteorology/cities/daily/1081100.json', { signal: controller.signal, credentials: 'omit', referrerPolicy: 'no-referrer' });
+      const response = await fetch('index.php?page=api.weather', { signal: controller.signal, credentials: 'same-origin' });
       if (!response.ok) throw new Error('Weather unavailable');
       const payload = await response.json();
       if (!present(payload)) throw new Error('No forecast for today');

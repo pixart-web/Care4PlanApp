@@ -35,8 +35,11 @@
       locale: 'pt', timeZone: 'Europe/Lisbon', initialDate: root.dataset.date,
       initialView: window.matchMedia('(max-width: 699px)').matches ? 'timeGridDay' : 'timeGridWeek',
       height: 'auto', firstDay: 1, nowIndicator: true, slotEventOverlap: false, eventMinHeight: 28, eventShortHeight: 28, dayMaxEvents: 3,
-      headerToolbar: { left: 'prev,next today', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth' },
-      buttonText: { today: 'Hoje', month: 'M\u00eas', week: 'Semana', day: 'Dia' },
+      headerToolbar: { left: 'prev,today,next', center: 'title', right: 'timeGridDay,timeGridWeek,dayGridMonth' },
+      // Text arrows: FullCalendar's icon font is blocked by the CSP (font-src 'self').
+      buttonIcons: false,
+      buttonText: { prev: '\u2039', next: '\u203a', today: 'Hoje', month: 'M\u00eas', week: 'Semana', day: 'Dia' },
+      buttonHints: { prev: 'Per\u00edodo anterior', next: 'Per\u00edodo seguinte', today: 'Hoje' },
       allDayText: 'Dia inteiro', noEventsText: 'Sem servi\u00e7os neste per\u00edodo',
       slotMinTime: '00:00:00', slotMaxTime: '24:00:00',
       slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },

@@ -364,6 +364,12 @@ function hsl_to_hex(float $h, float $s, float $l): string
     return sprintf('#%02x%02x%02x', (int) round(($r + $m) * 255), (int) round(($g + $m) * 255), (int) round(($b + $m) * 255));
 }
 
+/** Portuguese label for a stored role code (the code itself stays unchanged in the database). */
+function role_label(string $role): string
+{
+    return ['ADMIN' => 'Administração', 'EDITOR' => 'Coordenação', 'CARER' => 'Cuidadora'][$role] ?? $role;
+}
+
 function carer_status(int $carerId): string
 {
     $stmt = db()->prepare("SELECT COUNT(*) FROM services WHERE carer_id = ? AND status != 'CANCELLED' AND starts_at <= ? AND ends_at > ?");

@@ -177,3 +177,26 @@
 .patient-calendar thead th { width:120px; }
 .patient-calendar thead .patient-corner, .patient-calendar tbody th { width:170px; }
 @media(max-width:760px) { .patient-calendar thead .patient-corner,.patient-calendar tbody th { width:140px; } }
+/* Carer calendar toolbar, aligned with the planning toolbar (‹ Hoje ›  ·  Dia | Semana | Mês). */
+#carer-calendar .fc-header-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:12px; margin-bottom:16px; }
+#carer-calendar .fc-toolbar-chunk { display:flex; align-items:center; }
+#carer-calendar .fc-toolbar-title { font:22px Georgia,serif; color:var(--ink,#242C2A); }
+#carer-calendar .fc-toolbar-chunk:first-child .fc-button { background:transparent; border:0; box-shadow:none; color:var(--ink,#242C2A); min-height:36px; padding:6px 10px; font-size:14px; border-radius:5px; }
+#carer-calendar .fc-prev-button, #carer-calendar .fc-next-button { font-size:22px !important; line-height:1; width:36px; padding:4px 0 8px !important; }
+#carer-calendar .fc-toolbar-chunk:first-child .fc-button:hover:not(:disabled) { background:var(--soft,#F6F3ED); }
+#carer-calendar .fc-toolbar-chunk:first-child .fc-button:disabled { opacity:.45; }
+#carer-calendar .fc-toolbar-chunk:last-child .fc-button-group { background:var(--soft,#F6F3ED); border:1px solid var(--line,#DDDCD4); border-radius:6px; padding:3px; gap:2px; }
+#carer-calendar .fc-toolbar-chunk:last-child .fc-button { background:transparent; border:0; box-shadow:none; color:var(--ink,#242C2A); min-height:34px; padding:7px 16px; font-size:14px; border-radius:4px !important; }
+#carer-calendar .fc-toolbar-chunk:last-child .fc-button:hover:not(.fc-button-active) { background:#ECE8DF; }
+#carer-calendar .fc-toolbar-chunk:last-child .fc-button-active { background:#183A32 !important; color:#FFFEFB !important; }
+#carer-calendar .fc-button:focus-visible { outline:2px solid #22776e; outline-offset:2px; box-shadow:none; }
+@media(max-width:699px) { #carer-calendar .fc-header-toolbar { display:grid; grid-template-columns:1fr; justify-items:center; } #carer-calendar .fc-toolbar-title { font-size:18px; } #carer-calendar .fc-toolbar-chunk:last-child .fc-button { padding:7px 12px; } }
+/* "Os meus clientes" (carer). */
+.patient-care-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(320px,1fr)); gap:16px; align-items:start; }
+.patient-care-grid .card { padding:20px; }
+.patient-care-grid .section-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; margin-bottom:12px; }
+.patient-care-grid .section-head h2 { margin:0; font:20px Georgia,serif; }
+.patient-care-grid .detail-notes { margin-top:14px; }
+.patient-care-grid .detail-notes h3 { font-size:13px; margin:0 0 4px; color:var(--muted,#61716a); }
+.patient-care-grid .detail-notes p { margin:0; white-space:normal; }
+@media(max-width:699px) { .patient-care-grid { grid-template-columns:1fr; } }

@@ -17,7 +17,7 @@ $previousUrl = $calendarUrl(['scale_date' => (clone $periodStartDate)->modify('-
 $nextUrl = $calendarUrl(['scale_date' => (clone $periodStartDate)->modify('+1 ' . $step)->format('Y-m-d')]);
 
 layout('Escalas - Care4All', function () use ($carers, $patients, $municipalities, $periodOptions, $selectedMunicipality, $selectedPeriod, $selectedDate, $selectedWeek, $selectedMonth, $periodLabel, $mapServices, $mapCarers, $servicesByDate, $calendarDays, $calendarHours, $selectedCarer, $selectedPatient, $selectedStatus, $search, $visibleCarers, $carerPage, $carerPages, $pageUrl, $calendarUrl, $previousUrl, $nextUrl, $scopeLabel, $statusLabels, $statusCounts, $activeHours, $conflictCount, $filterCount) { ?>
-    <link rel="stylesheet" href="assets/atelier-scales.css">
+    <link rel="stylesheet" href="assets/atelier-scales.css?v=20261118">
     <div class="planning-heading"><div><h1>Escalas</h1><p class="muted"><?= e($scopeLabel) ?> <span aria-hidden="true">/</span> <?= e($periodLabel) ?></p></div><button class="btn btn-primary" id="open-new-service" type="button" data-open-modal="service-modal"><i data-lucide="plus" aria-hidden="true"></i>Nova escala</button></div>
 
     <section class="planning-workspace" aria-label="Planeamento de serviços">

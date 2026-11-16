@@ -53,7 +53,7 @@ layout('Utilizadores - Care4All', function () use ($users, $carers) { ?>
                         <tr>
                             <td><strong><?= e($u['name']) ?></strong></td>
                             <td><?= e($u['username']) ?></td>
-                            <td><span class="badge"><?= e($u['role']) ?></span></td>
+                            <td><span class="badge"><?= e(role_label($u['role'])) ?></span></td>
                             <td><?= e($u['carer_name']) ?: '-' ?></td>
                         </tr>
                     <?php endforeach; ?>
@@ -66,7 +66,7 @@ layout('Utilizadores - Care4All', function () use ($users, $carers) { ?>
                     <article class="mobile-item">
                         <strong><?= e($u['name']) ?></strong>
                         <div class="mobile-line"><span>Nome de utilizador</span><span><?= e($u['username']) ?></span></div>
-                        <div class="mobile-line"><span>Função</span><span><?= e($u['role']) ?></span></div>
+                        <div class="mobile-line"><span>Função</span><span><?= e(role_label($u['role'])) ?></span></div>
                         <div class="mobile-line"><span>Cuidadora</span><span><?= e($u['carer_name']) ?: '-' ?></span></div>
                     </article>
                 <?php endforeach; ?>
@@ -89,7 +89,7 @@ layout('Utilizadores - Care4All', function () use ($users, $carers) { ?>
                 <input type="hidden" name="id" value="">
                 <label class="field"><span class="label">Nome</span><input class="input" name="name" required></label>
                 <label class="field"><span class="label">Nome de utilizador</span><input class="input" name="username" required></label>
-                <label class="field"><span class="label">Função</span><select class="input" name="role"><?php foreach (['ADMIN','EDITOR','CARER'] as $role): ?><option value="<?= $role ?>"><?= $role ?></option><?php endforeach; ?></select></label>
+                <label class="field"><span class="label">Função</span><select class="input" name="role"><?php foreach (['ADMIN','EDITOR','CARER'] as $role): ?><option value="<?= $role ?>"><?= e(role_label($role)) ?></option><?php endforeach; ?></select></label>
                 <label class="field"><span class="label">Cuidadora associada</span><select class="input" name="carer_id"><option value="">Sem associação</option><?php foreach ($carers as $carer): ?><option value="<?= $carer['id'] ?>"><?= e($carer['name']) ?></option><?php endforeach; ?></select></label>
                 <label class="field"><span class="label">Palavra-passe</span><input class="input" name="password" type="password" required></label>
                 <div class="btn-row modal-actions">
@@ -130,7 +130,7 @@ layout('Utilizadores - Care4All', function () use ($users, $carers) { ?>
                 </label>
                 <label class="field"><span class="label">Nome</span><input class="input" name="name" required></label>
                 <label class="field"><span class="label">Nome de utilizador</span><input class="input" name="username" required></label>
-                <label class="field"><span class="label">Função</span><select class="input" name="role"><?php foreach (['ADMIN','EDITOR','CARER'] as $role): ?><option value="<?= $role ?>"><?= $role ?></option><?php endforeach; ?></select></label>
+                <label class="field"><span class="label">Função</span><select class="input" name="role"><?php foreach (['ADMIN','EDITOR','CARER'] as $role): ?><option value="<?= $role ?>"><?= e(role_label($role)) ?></option><?php endforeach; ?></select></label>
                 <label class="field"><span class="label">Cuidadora associada</span><select class="input" name="carer_id"><option value="">Sem associação</option><?php foreach ($carers as $carer): ?><option value="<?= $carer['id'] ?>"><?= e($carer['name']) ?></option><?php endforeach; ?></select></label>
                 <label class="field">
                     <span class="label">Palavra-passe</span>
