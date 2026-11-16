@@ -1,0 +1,32 @@
+# Auditoria técnica Care4All
+
+Referência: main, 94f3832, 13/11/2026. Instalação PHP standalone. Referências de linha relativas ao commit inicial. Foram consultados os relatórios da auditoria anterior, as rotas, os handlers, bibliotecas, vistas de impressão, scripts e os testes da versão operacional.
+
+|Natureza / gravidade|Localização e evidência|Impacto e recomendação|Aprovação / estado|
+|---|---|---|---|
+|Defeito P1|index.php:286–311; lib/scheduling.php:205. A pré-visualização constrói duas vezes o plano; a comparação no POST antecede o bloqueio de escrita.|A proposta apresentada, incluindo as ocorrências ignoradas, pode diferir da gravada. Assinar a mesma leitura e verificar a proposta dentro da transação.|Técnica, corrigir e testar|
+|Defeito P1|lib/scheduling.php:223. O resumo de confirmação depende do plano e das visitas, mas não da sessão nem da chave de submissão.|Uma segunda submissão pode herdar uma confirmação anterior. Vincular autorização à sessão, ao pedido, à proposta e às visitas presentes.|Técnica, corrigir e testar|
+|Risco confirmado P1|index.php:325–345 e lib/scheduling.php:237. Cancelar/apagar remove linhas; libertar um horário antigo pode eliminar um cancelamento. O evento de auditoria guarda ação e ID.|A eliminação de um serviço concluído altera relatórios reconstruídos e retira a base de cálculo. Os IDs dos lotes não constituem um arquivo recuperável. Proposta: arquivo transacional com acesso e prazo de retenção definidos, mantendo o horário livre.|Exige aprovação da política de histórico; pendente|
+|Discrepância P2|assets/planning-additions.js, carePocketEstimate; lib/rates.php, service_rate_parts. O browser soma valores brutos e o servidor arredonda as duas categorias separadamente.|Exemplo sintético: sexta 23:45–sábado 00:15 a 10,02/h em ambas. Estimativa 5,01; parcelas do servidor 2,51 + 2,51 = 5,02. Proposta: alinhar a estimativa com o servidor. A escolha do arredondamento é do negócio.|Pendente de aprovação|
+|Risco P2|lib/profiles.php, profile_photo_upload. Valida assinatura/cabeçalho, dimensões e tamanho; não descodifica a imagem completa.|Uma imagem truncada pode ser aceite e não abrir no navegador. O endpoint exige sessão, tipo permitido e nosniff. Descodificação integral exige verificar capacidades do alojamento.|Pendente; não impor GD|
+|Risco P2|bootstrap.php, migrate/seed; lib/profiles.php, profiles_migrate. Migrações incrementais por coluna são repetíveis mas há várias operações e inspeções em cada abertura.|Interrupção pode deixar atualização parcial até à reexecução. Validar em cópia fictícia e publicar ficheiros em conjunto; considerar migrações por versão testadas separadamente.|Monitorizar|
+|Risco P2|lib/scheduling.php, scheduling_commit. A recuperação de um lote depende do plano recalculado a partir do estado atual.|Se os dados de origem mudarem depois do sucesso, a repetição pode ser recusada, sem duplicar escritas. Um contrato de replay totalmente independente do estado requer estratégia de compatibilidade com lotes antigos.|Pendente|
+|Melhoria P3|index.php, dispatch_action; views/scales-workspace.php e scripts associados. Validação, persistência e apresentação do planeamento encontram-se distribuídas.|Extrair apenas a assinatura de pré-visualização nesta intervenção; evitar reescrever o dispatcher.|Incremental|
+
+## Integridade e operação
+
+O arranque carrega config.php, security.php, scheduling.php, profiles.php, rates.php e planning.php. index.php trata os POST, os endpoints de fotografia, eventos e extrato, e encaminha as restantes páginas para views/. As vistas autenticadas usam layout.php, exceto as folhas imprimíveis autónomas. maintenance/backup.php é uma ferramenta CLI separada. O projeto Laravel não faz parte desta instalação.
+
+SQLite usa chaves estrangeiras e busy_timeout de 5 segundos. A criação de lotes, atualizações, libertação de horários e auditoria de lote partilham BEGIN IMMEDIATE; uma falha reverte o conjunto. A eliminação em série identifica serviços agendados da mesma série e horário desde a ocorrência escolhida e audita cada eliminação na transação. Concluir/desfazer exige pertença à cuidadora. A guarda de perfis inclui fotografia e movimentos/auditoria na transação. As relações históricas de clientes, cuidadoras e utilizadores têm triggers de proteção; os IDs internos de lotes em JSON não são chaves estrangeiras. As fotografias em BLOB aumentam o tamanho da cópia de segurança. O índice por cuidadora e início apoia a pesquisa de conflitos. A cópia usa a API de backup SQLite, inclusive com WAL ativo.
+
+## Segurança e finanças
+
+O login verifica hash, limita tentativas por conta/origem, regenera a sessão e o token CSRF. A sessão usa cookie HTTP-only, SameSite Lax e Secure em HTTPS; há expiração por inatividade e absoluta. Os POST validam CSRF e a forma dos parâmetros. Alterar a palavra-passe exige a atual e usa comparação do hash anterior na escrita. Os papéis são validados nos handlers; extrato financeiro é ADMIN, CARER vê a própria fotografia e os seus eventos. A apresentação usa escape HTML; o SQL usa parâmetros para dados, e listas internas para colunas dinâmicas. A exceção global regista classe e referência. A revisão e os testes cobrem percursos definidos, não certificam ausência universal de vulnerabilidades.
+
+Os custos Pocket e as receitas do cliente têm bases distintas. Finanças usa serviços não cancelados do mês de início; o extrato usa apenas concluídos; Pocket aplica a janela de disponibilização e o ajuste da cuidadora. As tarifas guardadas na escala têm prioridade e a duração é medida em Europe/Lisbon, repartida à meia-noite. Não se mudou a regra de imputação mensal de turnos nem se recalcularam valores históricos.
+
+## Resultado das intervenções
+
+As duas correções P1 de planeamento da tabela foram implementadas e têm regressão automatizada. Foi ainda confirmado um defeito P1 em index.php:65–79: a sessão já continha user_id quando falhava a escrita do evento de login. A autenticação passou a ocorrer após commit; corrigido e coberto por falha injetada.
+
+Risco funcional P2 confirmado por inspeção: bootstrap.php e .htaccess definem connect-src self, enquanto assets/care-day.js consulta o IPMA. A previsão externa pode ficar indisponível apesar de a aplicação estar operacional. Aprovar a origem HTTPS exata do IPMA nas duas políticas antes de alterar o acesso externo. A revisão de .htaccess é estática. Acesso direto em Apache/cPanel real depende da configuração efetiva do alojamento.

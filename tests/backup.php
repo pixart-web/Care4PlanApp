@@ -30,3 +30,22 @@ test('CLI backup refuses overwrite, missing source, public destination and corru
     $handle=fopen($temp.'/corrupt.sqlite','x'); fwrite($handle,'invalid fixture database'); fclose($handle);
     same(1,backup_command($temp.'/corrupt.sqlite',$temp.'/invalid-backup.sqlite')['code']); check(!file_exists($temp.'/invalid-backup.sqlite'));
 });
+test('Restored application backup retains rows, relationships and repeatable migrations',function()use($pdo,$temp):void{
+    $source = DB_FILE;
+    $backup = $temp.'/application-backup.sqlite';
+    same(0,backup_command($source,$backup)['code']);
+    $restored = $temp.'/restored-application.sqlite';
+    check(copy($backup,$restored));
+    $copy = new PDO('sqlite:'.$restored,null,null,[
+        PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC
+    ]);
+    $copy->exec('PRAGMA foreign_keys=ON');
+    migrate($copy);
+    same('ok',$copy->query('PRAGMA integrity_check')->fetchColumn());
+    same([],$copy->query('PRAGMA foreign_key_check')->fetchAll());
+    same(snapshot($pdo),snapshot($copy));
+    foreach (['service_batches','profile_photos','audit_events'] as $table) {
+        same($pdo->query("SELECT * FROM $table ORDER BY rowid")->fetchAll(),
+             $copy->query("SELECT * FROM $table ORDER BY rowid")->fetchAll());
+    }
+});

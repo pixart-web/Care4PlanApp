@@ -71,10 +71,10 @@ function migrate_v2(PDO $pdo): void
     if (!$applied) $pdo->prepare('INSERT OR IGNORE INTO schema_migrations VALUES (?, ?)')->execute(['v2-security', now()]);
 }
 
-function audit_event(PDO $pdo, string $action, ?int $entityId = null): void
+function audit_event(PDO $pdo, string $action, ?int $entityId = null, ?int $actorId = null): void
 {
     $pdo->prepare('INSERT INTO audit_events(user_id, action, entity_id, created_at) VALUES(?, ?, ?, ?)')
-        ->execute([$_SESSION['user_id'] ?? null, $action, $entityId, now()]);
+        ->execute([$actorId ?? $_SESSION['user_id'] ?? null, $action, $entityId, now()]);
 }
 
 function login_bucket(string $login): string
