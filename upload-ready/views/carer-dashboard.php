@@ -29,7 +29,7 @@ $stmt = $pdo->prepare("SELECT reports.id, reports.title, MAX(report_replies.crea
     ORDER BY replied_at DESC");
 $stmt->execute([$carerId]);
 $answeredReports = $stmt->fetchAll();
-$monthPocket = pocket_for_carer($carerId);
+$pocketSummary = carer_pocket_summary($pdo, $carerId);
 
 $stmt = $pdo->prepare("SELECT services.starts_at, services.ends_at, services.municipality, services.status, patients.name AS patient_name
     FROM services JOIN patients ON patients.id = services.patient_id
@@ -39,7 +39,7 @@ $stmt = $pdo->prepare("SELECT services.starts_at, services.ends_at, services.mun
 $stmt->execute([$carerId, $todayStart, $todayEnd, now()]);
 $nextServices = $stmt->fetchAll();
 
-layout('O meu dia - Care4All', function () use ($user, $todayServices, $todayHours, $monthPocket, $newReports, $answeredReports, $nextServices) { ?>
+layout('O meu dia - Care4All', function () use ($user, $todayServices, $todayHours, $pocketSummary, $newReports, $answeredReports, $nextServices) { ?>
     <link rel="stylesheet" href="assets/atelier-scales.css">
     <div class="carer-dashboard">
     <div class="page-head">
@@ -62,7 +62,7 @@ layout('O meu dia - Care4All', function () use ($user, $todayServices, $todayHou
     <section class="grid stats">
         <div class="card"><p class="muted">Serviços hoje</p><div class="stat-num"><?= $todayServices ?></div></div>
         <div class="card"><p class="muted">Horas hoje</p><div class="stat-num"><?= number_format($todayHours, 1, ',', ' ') ?></div></div>
-        <div class="card"><p class="muted">Pocket mensal</p><div class="stat-num"><?= money($monthPocket) ?></div></div>
+        <div class="card"><p class="muted">Pocket a receber</p><div class="stat-num"><?= money($pocketSummary['receivable']) ?></div><p class="metric-delta">Estimativa: <?= money($pocketSummary['estimate']) ?></p></div>
     </section>
     <section class="card care-agenda dashboard-agenda" aria-labelledby="next-services-title">
         <header class="section-head"><h2 id="next-services-title">Ainda hoje</h2><a class="btn btn-secondary" href="index.php?page=scales&amp;view=list">Ver agenda</a></header>

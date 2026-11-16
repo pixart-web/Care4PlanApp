@@ -40,7 +40,8 @@ function application_exception(Throwable $error): void
 {
     $reference = bin2hex(random_bytes(6));
     // Do not log SQL, form values, clinical information or credentials.
-    error_log('Care4All error ' . $reference . ' ' . get_class($error));
+    // File and line identify the failing code without exposing data.
+    error_log('Care4All error ' . $reference . ' ' . get_class($error) . ' at ' . basename($error->getFile()) . ':' . $error->getLine());
     http_response_code(500);
     echo 'Não foi possível concluir a operação. Referência: ' . $reference;
 }

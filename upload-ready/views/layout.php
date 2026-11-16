@@ -30,7 +30,7 @@ $careMessages = [
 ];
 $messageIndex = (int) floor(strtotime('today') / 86400) % count($careMessages);
 $careHour = (int) date('G');
-$careGreeting = $careHour < 12 ? 'Bom dia' : ($careHour < 19 ? 'Boa tarde' : 'Boa noite');
+$careGreeting = $careHour >= 6 && $careHour < 12 ? 'Bom dia' : ($careHour >= 12 && $careHour < 20 ? 'Boa tarde' : 'Boa noite');
 $careSun = [];
 for ($offset = 0; $offset < 8; $offset++) {
     $sunDate = strtotime('today +' . $offset . ' days');
@@ -45,6 +45,7 @@ $careIsDay = time() * 1000 >= $careSun[date('Y-m-d')][0] && time() * 1000 < $car
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= e($title) ?></title>
+    <?php require __DIR__ . '/app-install-head.php'; ?>
     <link rel="stylesheet" href="assets/app.css?v=20261103-ui2">
     <link rel="stylesheet" href="assets/atelier.css?v=20261103-ui2">
     <link rel="stylesheet" href="assets/care-ui.css?v=20261103-ui2">
@@ -70,6 +71,7 @@ $careIsDay = time() * 1000 >= $careSun[date('Y-m-d')][0] && time() * 1000 < $car
             <?php endforeach; ?>
         </nav>
         <div class="sidebar-foot">
+            <button class="btn btn-secondary install-app" type="button" data-install-app hidden><i data-lucide="download" aria-hidden="true"></i><span>Instalar app</span></button>
             <div class="session-bar">
                 <strong title="Olá, <?= e($user['name'] ?? '') ?>">Olá, <?= e($user['name'] ?? '') ?></strong>
                 <form method="post">
@@ -93,6 +95,7 @@ $careIsDay = time() * 1000 >= $careSun[date('Y-m-d')][0] && time() * 1000 < $car
     <nav id="mobile-navigation" class="mobile-navigation" aria-label="Todas as páginas" hidden>
         <div class="mobile-user"><strong><?= e($user['name'] ?? '') ?></strong><span class="muted"><?= $isCarer ? 'Cuidadora' : ($user['role'] === 'ADMIN' ? 'Administração' : 'Coordenação') ?></span></div>
         <?php foreach ($nav as $key => $label): ?><a class="<?= $active === $key ? 'active' : '' ?>" <?= $active === $key ? 'aria-current="page"' : '' ?> href="index.php?page=<?= e($key) ?>"><i data-lucide="<?= e($navIcons[$key]) ?>" aria-hidden="true"></i><span><?= e($label) ?></span></a><?php endforeach; ?>
+        <button class="btn btn-secondary install-app" type="button" data-install-app hidden><i data-lucide="download" aria-hidden="true"></i><span>Instalar app</span></button>
         <form method="post"><input type="hidden" name="_csrf" value="<?= csrf_token() ?>"><input type="hidden" name="action" value="logout"><button class="btn btn-secondary" type="submit">Sair</button></form>
     </nav>
 
@@ -121,8 +124,8 @@ $careIsDay = time() * 1000 >= $careSun[date('Y-m-d')][0] && time() * 1000 < $car
     </nav>
 </div>
 <script type="application/json" id="care-day-data"><?= json_encode(['messages' => $careMessages, 'index' => $messageIndex, 'sun' => $careSun], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="assets/app.js?v=20261104" defer></script>
-<script src="assets/care-day.js?v=20261103-ui2" defer></script>
+<script src="assets/app.js?v=20261116" defer></script>
+<script src="assets/care-day.js?v=20261116" defer></script>
 </body>
 </html>
 

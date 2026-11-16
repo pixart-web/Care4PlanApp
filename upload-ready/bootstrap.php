@@ -20,7 +20,7 @@ if (PHP_SAPI !== 'cli') {
     header('X-Content-Type-Options: nosniff');
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: same-origin');
-    header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+    header("Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://api.ipma.pt; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
     header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()');
     header('Cross-Origin-Opener-Policy: same-origin');
     header('Cache-Control: no-store');
@@ -384,6 +384,37 @@ function pocket_for_carer(int $carerId): float
     $adjustment->execute([$carerId]);
 
     return $servicesTotal + (float) $adjustment->fetchColumn();
+}
+
+/**
+ * Carer dashboard Pocket for the current month:
+ * - receivable: services already finished (as pocket_for_carer) plus adjustments;
+ * - estimate: every non-cancelled service of the month plus adjustments.
+ */
+function carer_pocket_summary(PDO $pdo, int $carerId): array
+{
+    $start = date('Y-m-01 00:00:00');
+    $end = date('Y-m-t 23:59:59');
+    $stmt = $pdo->prepare("SELECT * FROM services WHERE carer_id = ? AND status != 'CANCELLED' AND starts_at BETWEEN ? AND ?");
+    $stmt->execute([$carerId, $start, $end]);
+    $estimate = array_sum(array_map(fn($service) => service_rate_amount($service), $stmt->fetchAll()));
+
+    $adjustments = 0.0;
+    $hasTable = (bool) $pdo->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'carer_adjustments'")->fetchColumn();
+    if ($hasTable) {
+        $sum = $pdo->prepare('SELECT COALESCE(SUM(amount), 0) FROM carer_adjustments WHERE carer_id = ? AND incurred_on BETWEEN ? AND ?');
+        $sum->execute([$carerId, substr($start, 0, 10), substr($end, 0, 10)]);
+        $adjustments = (float) $sum->fetchColumn();
+    }
+    $manual = $pdo->prepare('SELECT COALESCE(pocket_adjustment, 0) FROM carers WHERE id = ?');
+    $manual->execute([$carerId]);
+    $manualAdjustment = (float) $manual->fetchColumn();
+
+    return [
+        // pocket_for_carer already includes the manual adjustment.
+        'receivable' => round(pocket_for_carer($carerId) + $adjustments, 2),
+        'estimate' => round($estimate + $manualAdjustment + $adjustments, 2),
+    ];
 }
 
 function service_pocket_value(array $service): float

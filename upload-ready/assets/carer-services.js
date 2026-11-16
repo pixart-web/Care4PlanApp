@@ -6,7 +6,7 @@
   const panel = document.getElementById('carer-calendar-panel');
   const error = document.getElementById('carer-calendar-error');
   const buttons = [...root.querySelectorAll('[data-agenda-view]')];
-  const labels = { SCHEDULED: 'Agendado', DONE: 'Conclu\u00eddo', CANCELLED: 'Cancelado' };
+  const labels = { SCHEDULED: 'Agendado', REALIZED: 'Realizado', DONE: 'Realizado', CANCELLED: 'Cancelado' };
   let calendar;
   const showDetails = (info) => {
     const event = info.event;

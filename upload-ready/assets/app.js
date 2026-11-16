@@ -6,6 +6,20 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.lucide) window.lucide.createIcons({ attrs: { 'aria-hidden': 'true', 'stroke-width': 1.7 } });
 });
 
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+let careInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (event) => {
+  event.preventDefault(); careInstallPrompt = event;
+  document.querySelectorAll('[data-install-app]').forEach(button => { button.hidden = false; });
+});
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-install-app]');
+  if (!button || !careInstallPrompt) return;
+  careInstallPrompt.prompt(); await careInstallPrompt.userChoice; careInstallPrompt = null;
+  document.querySelectorAll('[data-install-app]').forEach(item => { item.hidden = true; });
+});
+window.addEventListener('appinstalled', () => document.querySelectorAll('[data-install-app]').forEach(button => { button.hidden = true; }));
+
 function setupColorButton() {
   document.querySelectorAll('[name="color_hex"]').forEach(input=>input.addEventListener('input',()=>{const preview=input.closest('form')?.querySelector('[data-color-preview]');if(preview)preview.style.backgroundColor=input.value;}));
   document.querySelectorAll('[data-generate-color]').forEach((button) => {
@@ -258,7 +272,8 @@ function setupPatientSelectors() {
       Object.keys(selected.dataset).forEach((key) => {
         const field = key.replace(/[A-Z]/g, (letter) => '_' + letter.toLowerCase());
         const input = form.querySelector(`[name="${field}"]`);
-        if (input) input.value = selected.dataset[key] || '';
+        if (input?.type === 'checkbox') input.checked = selected.dataset[key] === '1';
+        else if (input) input.value = selected.dataset[key] || '';
       });
     });
   });

@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     time.textContent = formattedTime;
     time.dateTime = now.toISOString();
     document.querySelector('[data-care-date]').textContent = dateFormat.format(now) + ' · Lisboa';
-    document.querySelectorAll('[data-care-greeting]').forEach(e => { e.textContent = hour < 12 ? 'Bom dia' : hour < 19 ? 'Boa tarde' : 'Boa noite'; });
+    document.querySelectorAll('[data-care-greeting]').forEach(e => { e.textContent = hour >= 6 && hour < 12 ? 'Bom dia' : hour >= 12 && hour < 20 ? 'Boa tarde' : 'Boa noite'; });
     const sun = data.sun[currentDate];
     const daylight = sun ? now.getTime() >= sun[0] && now.getTime() < sun[1] : hour >= 7 && hour < 19;
     if (skyState !== daylight) {
