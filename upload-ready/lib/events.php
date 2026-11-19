@@ -70,3 +70,21 @@ function events_api(): never
 }
 
 
+
+/** Scheduled services of one carer for one client (recent past and future), so several days can be unscheduled at once. */
+function pair_services_api(): never
+{
+    require_role(['ADMIN', 'EDITOR']);
+    $carerId = (int) ($_GET['carer_id'] ?? 0);
+    $patientId = (int) ($_GET['patient_id'] ?? 0);
+    header('Content-Type: application/json; charset=utf-8');
+    if ($carerId <= 0 || $patientId <= 0) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Selecione a cuidadora e o cliente.']);
+        exit;
+    }
+    $stmt = db()->prepare("SELECT id, starts_at, ends_at FROM services WHERE carer_id = ? AND patient_id = ? AND status = 'SCHEDULED' AND starts_at >= ? ORDER BY starts_at LIMIT 300");
+    $stmt->execute([$carerId, $patientId, date('Y-m-d', strtotime('-60 days'))]);
+    echo json_encode(['services' => array_map(fn($row) => ['id' => (int) $row['id'], 'starts_at' => $row['starts_at'], 'ends_at' => $row['ends_at']], $stmt->fetchAll())], JSON_THROW_ON_ERROR);
+    exit;
+}

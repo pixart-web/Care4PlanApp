@@ -20,8 +20,8 @@ $dayUrl = static function (DateTimeImmutable $date) use ($view): string {
     return 'index.php?' . http_build_query(['page' => 'scales', 'scale_date' => $date->format('Y-m-d')] + ($view ? ['view' => $view] : []));
 };
 layout('Os meus serviços - Care4All', function () use ($day, $today, $view, $services, $statusLabels, $dayUrl) { ?>
-    <link rel="stylesheet" href="assets/atelier-scales.css?v=20261118">
-    <section class="care-agenda" data-carer-agenda data-date="<?= e($day->format('Y-m-d')) ?>" data-view="<?= e($view) ?>">
+    <link rel="stylesheet" href="assets/atelier-scales.css?v=20261119">
+    <section class="care-agenda" data-carer-agenda data-date="<?= e($day->format('Y-m-d')) ?>" data-holidays="<?= e(json_encode(holiday_map((int) $day->format('Y')), JSON_UNESCAPED_UNICODE)) ?>" data-view="<?= e($view) ?>">
         <header class="page-head">
             <div><p class="eyebrow">A minha agenda</p><h1>Os meus servi&ccedil;os</h1></div>
             <div class="agenda-view-switch" role="group" aria-label="Vista da agenda">
@@ -68,5 +68,5 @@ layout('Os meus serviços - Care4All', function () use ($day, $today, $view, $se
     </section>
     <script src="assets/vendor/fullcalendar-6.1.11.global.min.js" defer></script>
     <script src="assets/vendor/fullcalendar-pt-6.1.11.global.min.js" defer></script>
-    <script src="assets/carer-services.js?v=20261117" defer></script>
+    <script src="assets/carer-services.js?v=20261119" defer></script>
 <?php });

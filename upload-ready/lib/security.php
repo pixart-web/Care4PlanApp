@@ -117,10 +117,27 @@ function may_report_patient(PDO $pdo, array $user, int $patientId): bool
     return (bool) $stmt->fetchColumn();
 }
 
+/**
+ * Back to the scales view the user was on: scale forms post to the current URL,
+ * so its query (period, date, filters) is still in $_GET. Only known keys are kept.
+ */
+function scales_redirect(array $fallback = []): never
+{
+    $keep = ['period', 'scale_date', 'scale_week', 'scale_month', 'municipality', 'status', 'search', 'carer_id', 'patient_id', 'rows', 'carer_page'];
+    $query = ['page' => 'scales'];
+    foreach ($keep as $key) {
+        if (isset($_GET[$key]) && is_string($_GET[$key]) && $_GET[$key] !== '') $query[$key] = substr($_GET[$key], 0, 200);
+    }
+    if (!isset($query['scale_date']) && !isset($query['scale_week']) && !isset($query['scale_month'])) $query += $fallback;
+    header('Location: index.php?' . http_build_query($query));
+    exit;
+}
+
 function reject_action(string $message, string $page): never
 {
     if (db()->inTransaction()) db()->rollBack();
     $_SESSION['flash_error'] = $message;
+    if ($page === 'scales') scales_redirect();
     redirect($page);
 }
 
@@ -138,6 +155,11 @@ function validate_request_shape(): void
     }
     foreach ([$_GET, $_POST] as $source => $values) {
         foreach ($values as $key => $value) {
+            if ($source === 1 && $key === 'service_ids' && is_array($value)) {
+                if (count($value) > 300) $invalid();
+                foreach ($value as $item) if (!is_string($item) || filter_var($item, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) === false) $invalid();
+                continue;
+            }
             if ($source === 1 && in_array($key, ['recurrence_dates', 'recurrence_weekdays'], true) && is_array($value)) {
                 if (count($value) > 3660) $invalid();
                 foreach ($value as $item) if (!is_string($item) || strlen($item) > 32 || str_contains($item, "\0")) $invalid();

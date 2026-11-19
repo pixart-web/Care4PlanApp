@@ -30,6 +30,17 @@
     document.getElementById('carer-undo-form').hidden = props.status !== 'DONE';
     window.openCareModal('carer-selected', info.el);
   };
+  let holidays = {};
+  try { holidays = JSON.parse(root.dataset.holidays || '{}'); } catch (ignore) { holidays = {}; }
+  // FullCalendar passes UTC-coerced dates when timeZone is a named zone without a plugin.
+  const holidayOf = (date) => holidays[date.toISOString().slice(0, 10)] || null;
+  const addHolidayTag = (target, name) => {
+    const tag = document.createElement('span');
+    tag.className = 'holiday-tag';
+    tag.textContent = 'FERIADO';
+    tag.title = name;
+    target.append(' ', tag);
+  };
   const createCalendar = () => {
     calendar = new FullCalendar.Calendar(document.getElementById('carer-calendar'), {
       locale: 'pt', timeZone: 'Europe/Lisbon', initialDate: root.dataset.date,
@@ -44,6 +55,11 @@
       slotMinTime: '00:00:00', slotMaxTime: '24:00:00',
       slotLabelFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
       eventTimeFormat: { hour: '2-digit', minute: '2-digit', hour12: false },
+      // Portuguese national holidays, computed by the server.
+      dayHeaderClassNames: (arg) => (holidayOf(arg.date) ? ['is-holiday'] : []),
+      dayCellClassNames: (arg) => (holidayOf(arg.date) ? ['is-holiday'] : []),
+      dayHeaderDidMount(arg) { if (holidayOf(arg.date) && arg.view.type !== 'dayGridMonth') addHolidayTag(arg.el.querySelector('.fc-col-header-cell-cushion') || arg.el, holidayOf(arg.date)); },
+      dayCellDidMount(arg) { if (holidayOf(arg.date) && arg.view.type === 'dayGridMonth') addHolidayTag(arg.el.querySelector('.fc-daygrid-day-top') || arg.el, holidayOf(arg.date)); },
       events(info, success, failure) {
         error.hidden = true;
         const params = new URLSearchParams({ page: 'api.events', start: info.startStr, end: info.endStr });

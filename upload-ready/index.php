@@ -22,10 +22,19 @@ if ($page === 'client-statement') {
     exit;
 }
 
+if ($page === 'carer-statement') {
+    require __DIR__.'/views/carer-statement.php';
+    exit;
+}
+
 if ($page === 'photo') profile_photo_endpoint();
 
 if ($page === 'api.events') {
     events_api();
+}
+
+if ($page === 'api.pair-services') {
+    pair_services_api();
 }
 
 if ($page === 'api.weather') {
@@ -231,11 +240,13 @@ function dispatch_action(PDO $pdo, string $action): void
         $fields = [
             'name', 'birth_date', 'tax_number', 'sns_number', 'address', 'postal_code', 'city', 'phone', 'email',
             'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone', 'emergency_contact_email',
-            'doctor_name', 'health_unit', 'diagnoses', 'allergies', 'medication', 'medication_schedule', 'mobility',
-            'cognition', 'fall_risk', 'incontinence', 'food_restrictions', 'care_needs', 'daily_routine', 'preferences',
-            'avoid', 'special_instructions', 'home_access', 'pets', 'equipment', 'status', 'support_start_date',
-            'contracted_hours', 'service_type', 'admin_notes', 'observations'
+            'doctor_name', 'health_unit', 'diagnoses', 'allergies', 'medication', 'mobility',
+            'cognition', 'fall_risk', 'incontinence', 'food_restrictions', 'daily_routine',
+            'pets', 'status', 'support_start_date',
+            'contracted_hours', 'service_type', 'admin_notes', 'observations', 'technical_aids'
         ];
+        // Fields removed from the form (medication_schedule, care_needs, preferences, avoid,
+        // special_instructions, home_access, equipment) are left untouched so old data is kept.
         $data = [];
         foreach ($fields as $field) {
             $data[$field] = trim((string) ($_POST[$field] ?? ''));
@@ -328,8 +339,7 @@ function dispatch_action(PDO $pdo, string $action): void
             reject_action($error->getMessage(), 'scales');
         }
         $_SESSION['scales_municipality'] = $plan['municipality'];
-        header('Location: index.php?page=scales&municipality=' . urlencode($plan['municipality']) . '&scale_date=' . urlencode(substr($plan['occurrences'][0]['starts_at'], 0, 10)));
-        exit;
+        scales_redirect(['municipality' => $plan['municipality'], 'scale_date' => substr($plan['occurrences'][0]['starts_at'], 0, 10)]);
     }
 
     if (in_array($action, ['cancel_service', 'delete_service'], true)) {
@@ -343,6 +353,20 @@ function dispatch_action(PDO $pdo, string $action): void
             if (($_POST['future_series'] ?? '') === '1' && $service['status'] === 'SCHEDULED') {
                 $targets = array_filter(planning_series($pdo, $service), fn($row) => $row['starts_at'] >= $service['starts_at']);
             }
+            if (($_POST['future_series'] ?? '') === 'pick') {
+                // Chosen days: only scheduled services of this same carer and client.
+                $ids = array_values(array_unique(array_map('intval', (array) ($_POST['service_ids'] ?? []))));
+                $targets = [];
+                if ($ids) {
+                    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+                    $pick = $pdo->prepare("SELECT * FROM services WHERE id IN ({$placeholders}) AND carer_id = ? AND patient_id = ? AND status = 'SCHEDULED'");
+                    $pick->execute([...$ids, $service['carer_id'], $service['patient_id']]);
+                    $targets = $pick->fetchAll();
+                }
+                if (!$targets) {
+                    reject_action('Escolha pelo menos um dia para desmarcar.', 'scales');
+                }
+            }
             $remove = $pdo->prepare('DELETE FROM services WHERE id = ?');
             foreach ($targets as $target) {
                 $remove->execute([$target['id']]);
@@ -350,7 +374,7 @@ function dispatch_action(PDO $pdo, string $action): void
             }
         }
         $pdo->commit();
-        redirect('scales');
+        scales_redirect();
     }
 
     if ($action === 'done_service' || $action === 'undo_service') {

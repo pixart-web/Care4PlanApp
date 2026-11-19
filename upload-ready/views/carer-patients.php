@@ -11,7 +11,7 @@ function carer_patient_value(mixed $value): string
 }
 
 layout('Os meus clientes - Care4All', function () use ($patients) { ?>
-    <link rel="stylesheet" href="assets/atelier-scales.css?v=20261118">
+    <link rel="stylesheet" href="assets/atelier-scales.css?v=20261119">
     <div class="page-head"><div><p class="eyebrow">Informação de apoio</p><h1>Os meus clientes</h1><p class="muted">Dados dos clientes associados às suas escalas. Utilize esta informação apenas no âmbito dos cuidados.</p></div></div>
     <?php if (!$patients): ?><div class="card empty-state"><h2>Sem clientes associados</h2><p class="muted">Os clientes aparecem aqui quando lhe é atribuída uma escala.</p></div><?php endif; ?>
     <div class="grid patient-care-grid">
@@ -26,15 +26,12 @@ layout('Os meus clientes - Care4All', function () use ($patients) { ?>
                     <dt>Cognição</dt><dd><?= e(carer_patient_value($patient['cognition'] ?? '')) ?></dd>
                     <dt>Risco de queda</dt><dd><?= e(carer_patient_value($patient['fall_risk'] ?? '')) ?></dd>
                     <dt>Incontinência</dt><dd><?= e(carer_patient_value($patient['incontinence'] ?? '')) ?></dd>
-                    <dt>Acesso à habitação</dt><dd><?= e(carer_patient_value($patient['home_access'] ?? '')) ?></dd>
                     <dt>Animais</dt><dd><?= e(carer_patient_value($patient['pets'] ?? '')) ?></dd>
                 </dl>
                 <?php foreach ([
-                    'Rotina diária' => 'daily_routine', 'Observações' => 'observations', 'Apoio necessário' => 'care_needs',
+                    'Rotina do cliente' => 'daily_routine', 'Observações' => 'observations',
                     'Diagnósticos relevantes' => 'diagnoses', 'Alergias' => 'allergies', 'Medicação habitual' => 'medication',
-                    'Horários de medicação' => 'medication_schedule', 'Restrições alimentares' => 'food_restrictions',
-                    'Preferências' => 'preferences', 'O que evitar' => 'avoid', 'Instruções especiais' => 'special_instructions',
-                    'Equipamentos' => 'equipment'
+                    'Restrições alimentares' => 'food_restrictions'
                 ] as $label => $field): $value = trim((string)($patient[$field] ?? '')); if ($value === '') continue; ?>
                     <section class="detail-notes"><h3><?= e($label) ?></h3><p><?= nl2br(e($value)) ?></p></section>
                 <?php endforeach; ?>

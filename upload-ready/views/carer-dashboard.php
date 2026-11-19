@@ -40,7 +40,7 @@ $stmt->execute([$carerId, $todayStart, $todayEnd, now()]);
 $nextServices = $stmt->fetchAll();
 
 layout('O meu dia - Care4All', function () use ($user, $todayServices, $todayHours, $pocketSummary, $newReports, $answeredReports, $nextServices) { ?>
-    <link rel="stylesheet" href="assets/atelier-scales.css?v=20261118">
+    <link rel="stylesheet" href="assets/atelier-scales.css?v=20261119">
     <div class="carer-dashboard">
     <div class="page-head">
         <div>

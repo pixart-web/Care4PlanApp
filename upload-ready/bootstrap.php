@@ -14,6 +14,7 @@ require_once __DIR__ . '/lib/scheduling.php';
 require_once __DIR__ . '/lib/profiles.php';
 require_once __DIR__ . '/lib/rates.php';
 require_once __DIR__ . '/lib/planning.php';
+require_once __DIR__ . '/lib/reports.php';
 set_exception_handler('application_exception');
 enforce_authenticated_session_lifetime();
 if (PHP_SAPI !== 'cli') {

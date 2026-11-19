@@ -48,11 +48,19 @@ if (! empty($reports)) {
 }
 
 layout('Relatórios - Care4All', function () use ($isCarer, $carers, $patients, $reports, $replyHistory) { ?>
-    <?php if ((require_auth()['role'] ?? '') === 'ADMIN'): ?>
-    <section class="card"><h2>Relatório de serviços prestados</h2><form method="get" target="_blank">
-        <input type="hidden" name="page" value="client-statement">
+    <?php $role = require_auth()['role'] ?? ''; ?>
+    <?php if ($role === 'ADMIN'): ?>
+    <section class="card"><h2>Relatório de serviços prestados</h2><form method="post" action="?page=client-statement" target="_blank">
+        <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
         <label class="field">Cliente<select class="input" name="client" required><option value="">Selecionar</option><?php foreach ($patients as $patient): ?><option value="<?= (int)$patient['id'] ?>"><?= e($patient['name']) ?></option><?php endforeach; ?></select></label>
-        <label class="field">Mês<input class="input" type="month" name="month" value="<?= date('Y-m') ?>" required></label>
+        <?php report_period_fields(); ?>
+        <button class="btn btn-primary">Gerar relatório</button></form></section>
+    <?php endif; ?>
+    <?php if ($role === 'ADMIN' || $isCarer): ?>
+    <section class="card"><h2>Relatório da cuidadora</h2><p class="muted">Valores a receber por cliente e total do período.</p><form method="post" action="?page=carer-statement" target="_blank">
+        <input type="hidden" name="_csrf" value="<?= csrf_token() ?>">
+        <?php if (!$isCarer): ?><label class="field">Cuidadora<select class="input" name="carer" required><option value="">Selecionar</option><?php foreach ($carers as $carer): ?><option value="<?= (int)$carer['id'] ?>"><?= e($carer['name']) ?></option><?php endforeach; ?></select></label><?php endif; ?>
+        <?php report_period_fields(); ?>
         <button class="btn btn-primary">Gerar relatório</button></form></section>
     <?php endif; ?>
     <div class="page-head">

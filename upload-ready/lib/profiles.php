@@ -4,7 +4,7 @@ declare(strict_types=1);
 function profiles_migrate(PDO $pdo): void
 {
     foreach (['carers' => ['birth_date'=>'TEXT NULL','hourly_rate_weekday'=>'REAL NULL','hourly_rate_special'=>'REAL NULL'],
-        'patients' => ['house_key'=>'TEXT NULL','municipality'=>'TEXT NULL','client_special_rate'=>'REAL NULL'],
+        'patients' => ['house_key'=>'TEXT NULL','municipality'=>'TEXT NULL','client_special_rate'=>'REAL NULL','technical_aids'=>'TEXT NULL'],
         'services' => ['hourly_rate_special'=>'REAL NULL','client_rate_snapshot'=>'REAL NULL','client_special_snapshot'=>'REAL NULL','series_key'=>'TEXT NULL']] as $table=>$columns) {
         foreach ($columns as $column=>$definition) ensure_column($pdo,$table,$column,$definition);
     }
@@ -117,4 +117,18 @@ function profile_extra_save(PDO $pdo,string $table,int $id,array $values): void
     // Table and columns only originate in profile_extra_values / internal callers.
     $sql='UPDATE '.$table.' SET '.implode(', ',array_map(fn($column)=>$column.'=?',array_keys($values))).' WHERE id=?';
     $pdo->prepare($sql)->execute([...array_values($values),$id]);
+}
+
+/** Google Maps search link for a client: street, postal code, locality (or municipality) and country, so Maps does not guess another place. */
+function patient_maps_url(array $patient): string
+{
+    $address = trim(preg_replace('/\s+/u', ' ', (string)($patient['address'] ?? '')));
+    $parts = [$address];
+    $postal = trim((string)($patient['postal_code'] ?? ''));
+    if ($postal !== '' && stripos($address, $postal) === false) $parts[] = $postal;
+    foreach ([trim((string)($patient['city'] ?? '')), trim((string)($patient['municipality'] ?? ''))] as $place) {
+        if ($place !== '' && stripos(implode(' ', $parts), $place) === false) $parts[] = $place;
+    }
+    if (stripos($address, 'portugal') === false) $parts[] = 'Portugal';
+    return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode(implode(', ', array_filter($parts, fn($part) => $part !== '')));
 }

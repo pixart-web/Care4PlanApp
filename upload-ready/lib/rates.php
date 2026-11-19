@@ -75,3 +75,24 @@ function client_sync_service_rates(PDO $pdo, int $patientId): int
     $update->execute([$regular, $special, $patientId]);
     return $update->rowCount();
 }
+
+/** Name of the Portuguese national holiday on a Y-m-d date, or null. */
+function holiday_name(string $date): ?string
+{
+    static $names = [];
+    $year = (int) substr($date, 0, 4);
+    if (!isset($names[$year])) {
+        $labels = ['Ano Novo', 'Dia da Liberdade', 'Dia do Trabalhador', 'Dia de Portugal', 'Assunção de Nossa Senhora', 'Implantação da República', 'Dia de Todos-os-Santos', 'Restauração da Independência', 'Imaculada Conceição', 'Natal', 'Sexta-feira Santa', 'Páscoa', 'Corpo de Deus'];
+        $names[$year] = array_combine(national_holidays($year), $labels);
+    }
+    return $names[$year][$date] ?? null;
+}
+
+/** Holidays from the previous to the next year, as date => name (for client-side calendars). */
+function holiday_map(?int $year = null): array
+{
+    $year ??= (int) date('Y');
+    $map = [];
+    foreach ([$year - 1, $year, $year + 1] as $each) foreach (national_holidays($each) as $date) $map[$date] = holiday_name($date);
+    return $map;
+}

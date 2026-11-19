@@ -93,3 +93,56 @@ document.querySelector('[data-sheet-popup]')?.addEventListener('click', event =>
     const popup = window.open(event.currentTarget.href, 'care4all_sheet', 'popup,width=1280,height=850');
     if (popup) { event.preventDefault(); popup.focus(); }
 });
+
+// Unschedule several days of the same carer with the same client (e.g. absences on different days).
+(() => {
+  const select = document.querySelector('#service-actions [name=future_series]');
+  const box = document.querySelector('[data-pick-days]');
+  if (!select || !box) return;
+  const form = select.closest('form');
+  const list = box.querySelector('[data-pick-list]');
+  const status = box.querySelector('[data-pick-status]');
+  const serviceForm = document.getElementById('service-form');
+  let request = 0;
+  const label = (row) => {
+    const start = new Date(row.starts_at.replace(' ', 'T'));
+    return start.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' }) + ' · ' + row.starts_at.slice(11, 16) + '–' + row.ends_at.slice(11, 16);
+  };
+  async function load() {
+    const current = ++request;
+    list.replaceChildren();
+    const carer = serviceForm.elements.carer_id.value, patient = serviceForm.elements.patient_id.value, selected = serviceForm.elements.id.value;
+    status.textContent = 'A carregar dias…';
+    try {
+      const response = await fetch('index.php?page=api.pair-services&carer_id=' + encodeURIComponent(carer) + '&patient_id=' + encodeURIComponent(patient), { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+      const result = await response.json();
+      if (current !== request) return;
+      if (!response.ok) throw new Error(result.error || 'Não foi possível carregar os dias.');
+      if (!result.services.length) { status.textContent = 'Sem dias agendados para esta cuidadora com este cliente.'; return; }
+      status.textContent = 'Marque os dias a desmarcar.';
+      for (const row of result.services) {
+        const item = document.createElement('label');
+        item.className = 'pick-day';
+        const input = document.createElement('input');
+        input.type = 'checkbox'; input.name = 'service_ids[]'; input.value = String(row.id);
+        input.checked = String(row.id) === selected;
+        item.append(input, ' ', label(row));
+        list.append(item);
+      }
+    } catch (error) {
+      if (current === request) status.textContent = error.message;
+    }
+  }
+  function sync() {
+    const picking = select.value === 'pick';
+    box.hidden = !picking;
+    if (picking) load(); else { request++; list.replaceChildren(); }
+  }
+  select.addEventListener('change', sync);
+  serviceForm.addEventListener('service-selected', () => { select.value = '0'; sync(); });
+  box.querySelector('[data-pick-all]').addEventListener('click', () => list.querySelectorAll('input').forEach((input) => { input.checked = true; }));
+  box.querySelector('[data-pick-none]').addEventListener('click', () => list.querySelectorAll('input').forEach((input) => { input.checked = false; }));
+  form.addEventListener('submit', (event) => {
+    if (select.value === 'pick' && !list.querySelector('input:checked')) { event.preventDefault(); event.stopImmediatePropagation(); status.textContent = 'Escolha pelo menos um dia.'; }
+  }, true);
+})();
