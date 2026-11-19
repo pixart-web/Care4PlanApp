@@ -1,6 +1,6 @@
 <?php
 $user = require_role(['CARER']);
-$stmt = db()->prepare("SELECT DISTINCT patients.* FROM patients JOIN services ON services.patient_id = patients.id WHERE services.carer_id = ? AND services.status != 'CANCELLED' ORDER BY patients.name");
+$stmt = db()->prepare("SELECT DISTINCT patients.* FROM patients JOIN services ON services.patient_id = patients.id WHERE services.carer_id = ? AND services.status != 'CANCELLED' AND COALESCE(patients.status, '') NOT IN ('Suspenso', 'Terminado') ORDER BY patients.name");
 $stmt->execute([(int) $user['carer_id']]);
 $patients = $stmt->fetchAll();
 

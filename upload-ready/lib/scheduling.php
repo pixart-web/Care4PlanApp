@@ -80,6 +80,13 @@ function scheduling_base_plan(PDO $pdo, array $data): array
     if ($id === false) {
         throw new InvalidArgumentException('Identificador inválido.');
     }
+    if (! $id) {
+        $statusStmt = $pdo->prepare('SELECT status FROM patients WHERE id = ?');
+        $statusStmt->execute([(int) $data['patient_id']]);
+        if (! patient_is_active($statusStmt->fetchColumn() ?: '')) {
+            throw new InvalidArgumentException('Este cliente está inativo. Reative-o na ficha antes de agendar.');
+        }
+    }
     $municipality = scheduling_client_municipality($pdo, (int) $data['patient_id']);
     if ($municipality === '') {
         $municipality = trim((string) ($data['municipality'] ?? ''));

@@ -96,7 +96,10 @@ function planning_month(PDO $pdo,array $data): array
     $stmt->execute([$first->format('Y-m-d'),$next->format('Y-m-d')]); $rows=$stmt->fetchAll();
     if (!$rows || count($rows)>5000) throw new InvalidArgumentException('Selecione um mês com 1 a 5000 serviços não cancelados.');
     $entries=[]; $unmatched=[];
+    $statusOf=$pdo->prepare('SELECT status FROM patients WHERE id=?'); $active=[];
     foreach ($rows as $row) {
+        if (!isset($active[$row['patient_id']])) { $statusOf->execute([$row['patient_id']]); $active[$row['patient_id']]=patient_is_active($statusOf->fetchColumn()?:''); }
+        if (!$active[$row['patient_id']]) continue; // Inactive clients are not copied to the next month.
         $start=scheduling_local_time($row['starts_at']); $end=scheduling_local_time($row['ends_at']);
         $ordinal=intdiv((int)$start->format('j')-1,7);
         $offset=((int)$start->format('N')-(int)$next->format('N')+7)%7+7*$ordinal;

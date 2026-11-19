@@ -283,10 +283,18 @@ function dispatch_action(PDO $pdo, string $action): void
         scheduling_sync_patient_municipality($pdo, $id);
         // Sums always follow the tariffs filled in on the client's profile.
         client_sync_service_rates($pdo, $id);
+        // A client who left frees the carers: future scheduled services are cancelled (kept as history).
+        $cancelledFuture = 0;
+        if (! patient_is_active($data['status'] ?? '')) {
+            $cancel = $pdo->prepare("UPDATE services SET status = 'CANCELLED', updated_at = ? WHERE patient_id = ? AND status = 'SCHEDULED' AND starts_at >= ?");
+            $cancel->execute([$now, $id, $now]);
+            $cancelledFuture = $cancel->rowCount();
+            if ($cancelledFuture) audit_event($pdo, 'cancel_inactive_client_services', $id);
+        }
         profile_photo_save($pdo, 'patient', $id, $profilePhoto);
         audit_event($pdo, $action, $id);
         $pdo->commit();
-        $_SESSION['flash'] = 'Cliente guardado.';
+        $_SESSION['flash'] = 'Cliente guardado.' . ($cancelledFuture ? ' ' . $cancelledFuture . ' marcação(ões) futura(s) cancelada(s) porque o cliente ficou inativo.' : '');
         redirect('patients');
     }
     if ($action === 'delete_patient') {

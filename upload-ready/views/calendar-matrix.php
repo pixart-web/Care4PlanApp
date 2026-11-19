@@ -12,6 +12,7 @@ foreach ($servicesByDate as $date => $services) {
 }
 if (!$rowByCarer && !$selectedStatus && !$search) {
     foreach ($patients as $patient) {
+        if (!patient_is_active($patient['status'] ?? '')) continue;
         if ((!$selectedPatient || $selectedPatient === (int)$patient['id']) && ($selectedMunicipality === 'all' || ($selectedMunicipality === '__unassigned' ? empty($patient['municipality']) : ($patient['municipality'] ?? '') === $selectedMunicipality))) $matrixPatients[$patient['id']] = $patient['name'];
     }
 }

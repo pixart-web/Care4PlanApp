@@ -84,6 +84,16 @@ test('Saving the client profile re-prices that client\'s services',function()use
         same(12.0,(float)$row['client_rate_snapshot']);same(13.0,(float)$row['client_special_snapshot']);
     }finally{$pdo->rollBack();}
 });
+test('Suspended or ended clients count as inactive',function():void{
+    check(patient_is_active('Ativo')); check(patient_is_active('')); check(patient_is_active(null));
+    check(!patient_is_active('Suspenso')); check(!patient_is_active('Terminado'));
+});
+test('Inactive clients cannot receive new services',function()use($pdo,$featureData,$patient):void{
+    $pdo->beginTransaction();try{
+        $pdo->prepare("UPDATE patients SET status='Terminado' WHERE id=?")->execute([$patient]);
+        rejects(fn()=>scheduling_plan($pdo,array_replace($featureData,['id'=>0,'patient_id'=>$patient])));
+    }finally{$pdo->rollBack();}
+});
 test('Reassigning a service uses the new client prices',function()use($pdo,$featureData,$patient):void{
     $pdo->beginTransaction();try{
         $other=(int)$pdo->query('SELECT id FROM patients WHERE id!='.(int)$patient.' LIMIT 1')->fetchColumn();

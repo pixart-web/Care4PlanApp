@@ -48,7 +48,7 @@ $careIsDay = time() * 1000 >= $careSun[date('Y-m-d')][0] && time() * 1000 < $car
     <?php require __DIR__ . '/app-install-head.php'; ?>
     <link rel="stylesheet" href="assets/app.css?v=20261103-ui2">
     <link rel="stylesheet" href="assets/atelier.css?v=20261103-ui2">
-    <link rel="stylesheet" href="assets/care-ui.css?v=20261103-ui2">
+    <link rel="stylesheet" href="assets/care-ui.css?v=20261119">
     <link rel="stylesheet" href="assets/planning-additions.css?v=20261104">
     <script src="assets/vendor/lucide-0.468.0.min.js?v=20261103-ui2" defer></script>
 </head>

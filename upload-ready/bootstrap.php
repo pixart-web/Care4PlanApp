@@ -365,6 +365,12 @@ function hsl_to_hex(float $h, float $s, float $l): string
     return sprintf('#%02x%02x%02x', (int) round(($r + $m) * 255), (int) round(($g + $m) * 255), (int) round(($b + $m) * 255));
 }
 
+/** A client is active unless the profile says Suspenso or Terminado (empty counts as Ativo). */
+function patient_is_active(?string $status): bool
+{
+    return ! in_array(trim((string) $status), ['Suspenso', 'Terminado'], true);
+}
+
 /** Portuguese label for a stored role code (the code itself stays unchanged in the database). */
 function role_label(string $role): string
 {
